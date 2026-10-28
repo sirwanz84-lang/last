@@ -1,0 +1,19 @@
+{
+  "name": "المصحح الصوتي",
+  "short_name": "المصحح",
+  "description": "تصحيح أوراق الإجابة بالصوت وكتابة الدرجة أمام اسم الطالب في ملف Excel",
+  "lang": "ar",
+  "dir": "rtl",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F3F6F5",
+  "theme_color": "#0B5D66",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
