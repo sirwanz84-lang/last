@@ -1,0 +1,2582 @@
+<title>المصحح الصوتي</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Amiri:wght@700&family=Noto+Sans+Arabic:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* التخطيط: بانر هوية أعلى الصفحة، ثم شريط خطوات ثابت على شكل أزرار مجزّأة، ثم بطاقات عائمة للخطوة الحالية.
+   الهوية: أخضر مزرقّ عميق (لون حبر الامتحانات) مع لمسة زعفرانية للتأكيد؛ نقش دوائر ورقة الإجابة في البانر. */
+:root{
+  --bg:#F3F6F5; --surface:#FFFFFF; --surface-2:#EAF1F0; --ink:#12262C; --muted:#5A6F74; --line:#D7E3E2;
+  --accent:#0B5D66; --accent-2:#0E7C7B; --accent-ink:#FFFFFF; --accent-soft:#DCEEEE;
+  --sun:#E8962A; --sun-soft:#FDF0DA;
+  --ok:#1F7A4C; --ok-soft:#DDF2E5; --warn:#99590D; --warn-soft:#FBEED6; --bad:#AE3328; --bad-soft:#F9E2DE;
+  --banner-1:#0A4F57; --banner-2:#0E7C7B;
+  --shadow:0 1px 2px rgba(16,40,44,.06),0 10px 28px -16px rgba(16,40,44,.28);
+  --f-display:"Amiri","Noto Sans Arabic",serif;
+  --f-ui:"Noto Sans Arabic","Segoe UI",Tahoma,system-ui,sans-serif;
+  --f-num:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+  --r:18px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0B1315; --surface:#132024; --surface-2:#1A2B30; --ink:#E6EFEE; --muted:#9AB0B4; --line:#24383D;
+  --accent:#5CC2C0; --accent-2:#3FA9A7; --accent-ink:#05272A; --accent-soft:#163538;
+  --sun:#F2B457; --sun-soft:#3A2E17;
+  --ok:#6CCB94; --ok-soft:#153024; --warn:#E7B25F; --warn-soft:#382A12; --bad:#F08A7E; --bad-soft:#3C1D19;
+  --banner-1:#083A40; --banner-2:#0B5D60;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 12px 30px -18px rgba(0,0,0,.7); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0B1315; --surface:#132024; --surface-2:#1A2B30; --ink:#E6EFEE; --muted:#9AB0B4; --line:#24383D;
+  --accent:#5CC2C0; --accent-2:#3FA9A7; --accent-ink:#05272A; --accent-soft:#163538;
+  --sun:#F2B457; --sun-soft:#3A2E17;
+  --ok:#6CCB94; --ok-soft:#153024; --warn:#E7B25F; --warn-soft:#382A12; --bad:#F08A7E; --bad-soft:#3C1D19;
+  --banner-1:#083A40; --banner-2:#0B5D60;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 12px 30px -18px rgba(0,0,0,.7); color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-ui);font-size:15px;line-height:1.65;direction:rtl;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 56px}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+h1,h2,h3{text-wrap:balance;margin:0}
+h2{font-family:var(--f-display);font-size:1.6rem;line-height:1.3;color:var(--ink)}
+h3{font-size:1.02rem;font-weight:600}
+p{margin:0}
+.wrap{max-width:1000px;margin:0 auto;display:grid;gap:16px}
+.num,.mono{font-family:var(--f-num);font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)} .small{font-size:.86rem}
+
+/* البانر */
+.banner{padding-top:16px}
+.banner-in{position:relative;overflow:hidden;border-radius:24px;padding:22px 22px 18px;color:#fff;
+  background:linear-gradient(135deg,var(--banner-1),var(--banner-2));box-shadow:var(--shadow);display:grid;gap:14px}
+.banner-art{position:absolute;inset-block:0;inset-inline-end:-10px;width:300px;opacity:.55;pointer-events:none}
+.banner-art svg{width:100%;height:100%}
+.brand{position:relative;display:flex;align-items:center;gap:14px}
+.brand h1{font-family:var(--f-display);font-size:2.1rem;line-height:1.05;color:#fff}
+.brand .sub{font-size:.9rem;color:rgba(255,255,255,.82);max-width:46ch}
+.logo{width:54px;height:54px;border-radius:16px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.25);color:#fff;display:grid;place-items:center;flex:none}
+.logo svg{width:28px;height:28px}
+.banner-row{position:relative;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.ctx{display:flex;gap:6px;flex-wrap:wrap}
+.ctx span{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:999px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.2);font-size:.84rem;color:#fff}
+.ctx span b{color:#FFD58F;font-weight:600}
+.banner .chip{background:rgba(0,0,0,.18);color:rgba(255,255,255,.85)}
+.banner .chip b{color:#fff}
+.banner .btn.primary{background:var(--sun);border-color:var(--sun);color:#1d1406}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background:var(--surface-2);font-size:.82rem;color:var(--muted)}
+.chip b{color:var(--ink)} .chip.bad{background:var(--bad-soft);color:var(--bad)}
+
+/* شريط الخطوات */
+.steps{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);padding-block:12px}
+.steps ol{list-style:none;margin:0 auto;padding:6px;max-width:1000px;display:grid;grid-template-columns:repeat(4,1fr);gap:4px;background:var(--surface);border-radius:18px;box-shadow:var(--shadow)}
+.steps button{width:100%;display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 2px;border:0;border-radius:14px;background:transparent;color:var(--muted);font:inherit;font-size:.84rem;cursor:pointer;transition:background .18s,color .18s}
+.steps button:hover{color:var(--ink)}
+.steps .dot{width:30px;height:30px;border-radius:50%;border:2px solid var(--line);display:grid;place-items:center;font-family:var(--f-num);font-weight:600;font-size:.85rem;background:var(--surface);transition:all .18s}
+.steps .dot svg{width:16px;height:16px}
+.steps button[aria-current="step"]{color:var(--accent);font-weight:700;background:var(--accent-soft)}
+.steps button[aria-current="step"] .dot{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,summary:focus-visible{outline:3px solid var(--sun);outline-offset:2px}
+
+/* البطاقات والأزرار */
+main section:not([hidden]){animation:rise .28s ease-out}
+@keyframes rise{from{opacity:.35;transform:translateY(6px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion: reduce){main section:not([hidden]){animation:none}}
+.card{background:var(--surface);border:0;border-radius:var(--r);padding:20px;display:grid;gap:14px;min-width:0;box-shadow:var(--shadow)}
+.card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:10px 18px;border-radius:14px;border:1.5px solid var(--line);background:var(--surface);color:var(--ink);font:inherit;font-weight:600;cursor:pointer;text-align:center;transition:background .15s,border-color .15s,transform .1s,box-shadow .15s}
+.btn:hover{border-color:var(--accent)}
+.btn:active{transform:scale(.98)}
+.btn.primary{background:linear-gradient(180deg,var(--accent-2),var(--accent));border-color:var(--accent);color:var(--accent-ink);box-shadow:0 6px 16px -10px var(--accent)}
+.btn.primary:hover{filter:brightness(1.06)}
+
+/* أزرار مجزّأة واختيارات */
+.seg-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.seg{display:inline-flex;background:var(--surface-2);border-radius:14px;padding:4px;gap:4px}
+.seg button{border:0;background:transparent;color:var(--muted);font:inherit;font-weight:600;padding:8px 14px;border-radius:11px;cursor:pointer;min-height:40px;transition:all .15s}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--accent);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.exam-list{display:flex;flex-wrap:wrap;gap:8px}
+.exam{display:grid;gap:2px;min-width:170px;padding:12px 14px;border-radius:14px;border:1.5px solid var(--line);background:var(--surface);color:var(--ink);font:inherit;text-align:start;cursor:pointer;transition:all .15s}
+.exam b{font-size:1.02rem}
+.exam span{color:var(--muted)}
+.exam.on{border-color:var(--accent);background:var(--accent-soft)}
+.exam-select{width:auto;min-width:150px;flex:0 1 auto}
+.chips-pick{display:flex;flex-wrap:wrap;gap:8px}
+.pick{display:inline-flex;align-items:center;gap:8px;padding:8px 14px;border-radius:999px;border:1.5px solid var(--line);cursor:pointer;font-weight:600}
+.pick:has(input:checked){border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
+.pick input{width:18px;height:18px;accent-color:var(--accent)}
+.modal .box:has(.print-preview){max-width:880px}
+.print-preview{background:#e9eeee;border-radius:12px;padding:12px;max-height:65vh;overflow:auto;color:#13262c}
+.print-preview .pg{background:#fff;padding:18px;border-radius:8px;margin-bottom:12px;box-shadow:0 2px 10px rgba(0,0,0,.1)}
+#print-root{display:none}
+@media print{
+  html,body{background:#fff!important;padding:0!important;margin:0}
+  body>*:not(#print-root){display:none!important}
+  #print-root{display:block!important}
+}
+tr.fail td{background:var(--bad-soft)}
+.btn.danger{color:var(--bad);border-color:var(--bad-soft)}
+.btn.danger.solid{background:var(--bad);color:var(--surface);border-color:var(--bad)}
+.btn.big{min-height:60px;font-size:1.05rem;padding:12px 22px}
+.btn.sm{min-height:36px;padding:6px 12px;font-size:.88rem;border-radius:10px}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.btn svg{width:22px;height:22px;flex:none}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px}
+label.field{display:grid;gap:4px;font-size:.88rem;color:var(--muted)}
+input[type=text],input[type=number],input[type=search],select,textarea{font:inherit;color:var(--ink);background:var(--surface);border:1.5px solid var(--line);border-radius:12px;min-height:46px;padding:8px 12px;width:100%;transition:border-color .15s,box-shadow .15s}
+input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);outline:none}
+textarea{min-height:70px;resize:vertical}
+input[type=number]{font-family:var(--f-num)}
+.check{display:flex;gap:10px;align-items:center;font-size:.92rem}
+.check input{width:22px;height:22px;flex:none}
+.notice{padding:12px 14px;border-radius:14px;background:var(--surface-2);font-size:.92rem;display:grid;gap:6px}
+.notice.warn{background:var(--warn-soft);color:var(--warn)} .notice.bad{background:var(--bad-soft);color:var(--bad)}
+.notice.ok{background:var(--ok-soft);color:var(--ok)} .notice.info{background:var(--accent-soft);color:var(--accent)}
+.notice ul{margin:4px 0 0;padding-inline-start:20px}
+.notice.alert{border:2px solid var(--bad);font-size:1rem}
+.notice.alert b{font-size:1.1rem}
+details.adv summary{cursor:pointer;font-weight:600}
+.hidden-input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.tag{display:inline-flex;align-items:center;padding:1px 9px;border-radius:999px;font-size:.78rem;font-weight:600;background:var(--surface-2);color:var(--muted)}
+.tag.ok{background:var(--ok-soft);color:var(--ok)} .tag.warn{background:var(--warn-soft);color:var(--warn)}
+.tag.bad{background:var(--bad-soft);color:var(--bad)} .tag.info{background:var(--accent-soft);color:var(--accent)}
+
+/* الصفوف والشعب */
+.classes{display:grid;gap:12px}
+.cls{border:1px solid var(--line);border-radius:12px;padding:12px;display:grid;gap:10px}
+.cls-head{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.cls-head h3{font-size:1.1rem}
+.secs{display:flex;flex-wrap:wrap;gap:8px}
+.sec{display:grid;gap:2px;min-width:130px;padding:10px 12px;border-radius:12px;border:1.5px solid var(--line);background:var(--surface);color:var(--ink);font:inherit;text-align:start;cursor:pointer}
+.sec b{font-size:1.05rem}
+.sec[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft)}
+.active-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.active-bar select{width:auto;min-width:200px;flex:1}
+
+/* مفتاح الإجابات */
+.total{display:flex;align-items:baseline;gap:10px}
+.total .big{font-family:var(--f-num);font-size:2.2rem;font-weight:600;line-height:1}
+.keygrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:8px}
+.krow{display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
+.krow.missing{border-color:var(--warn);background:var(--warn-soft)}
+.qn{font-family:var(--f-num);font-weight:600;min-width:2.4em;color:var(--muted)}
+.bubs{display:flex;gap:6px;direction:ltr;flex-wrap:wrap}
+.bub{width:42px;height:42px;border-radius:50%;border:2px solid var(--line);background:var(--surface);color:var(--ink);font-family:var(--f-num);font-weight:600;cursor:pointer;display:grid;place-items:center;padding:0;transition:all .12s}
+.bub:hover{border-color:var(--accent)}
+.bub[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.bub.blank{font-family:var(--f-ui);font-size:.75rem;width:auto;padding:0 10px;border-radius:21px}
+.bub.right[aria-pressed="true"]{background:var(--ok);border-color:var(--ok);color:var(--surface)}
+.bub.wrong[aria-pressed="true"]{background:var(--bad);border-color:var(--bad);color:var(--surface)}
+.pts{display:flex;align-items:center;gap:6px;margin-inline-start:auto;font-size:.8rem;color:var(--muted)}
+.pts input{width:68px;min-height:38px;padding:4px 8px}
+
+/* التصحيح الصوتي */
+.mic-zone{display:grid;justify-items:center;gap:10px;padding-block:6px;text-align:center}
+.mic{width:124px;height:124px;border-radius:50%;border:0;background:radial-gradient(circle at 35% 30%,var(--accent-2),var(--accent));color:var(--accent-ink);display:grid;place-items:center;cursor:pointer;box-shadow:0 0 0 10px var(--accent-soft),0 14px 30px -14px var(--accent);transition:transform .15s}
+.mic:active{transform:scale(.96)}
+.mic svg{width:48px;height:48px}
+.mic.on{background:var(--bad);color:var(--surface);animation:pulse 1.3s ease-in-out infinite}
+@keyframes pulse{50%{box-shadow:0 0 0 18px var(--bad-soft)}}
+@media (prefers-reduced-motion: reduce){.mic.on{animation:none}}
+.phase{font-weight:600;font-size:1.05rem}
+.interim{color:var(--muted);font-style:italic;min-height:1.6em}
+.live-preview{font-style:normal;color:var(--accent);font-size:1.25rem;font-weight:600;letter-spacing:.12em;direction:ltr}
+.student{display:grid;gap:8px;padding:14px;border-radius:12px;border:1.5px solid var(--line)}
+.student.sure{border-color:var(--ok);background:var(--ok-soft)}
+.student .nm{font-size:1.35rem;font-weight:700}
+.cands{display:flex;flex-wrap:wrap;gap:8px}
+.atable{display:grid;gap:6px}
+.arow{display:grid;grid-template-columns:auto 1fr;gap:6px 10px;align-items:center;padding:8px 10px;border-radius:12px;border:1px solid var(--line)}
+.arow.missing{border-color:var(--warn);background:var(--warn-soft)}
+.arow .meta{grid-column:1/-1;display:flex;gap:8px;flex-wrap:wrap;font-size:.82rem}
+.score{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.score .big{font-family:var(--f-num);font-size:2.6rem;font-weight:600;line-height:1}
+.score.tentative .big{color:var(--warn)}
+.progressbar{height:8px;border-radius:4px;background:var(--surface-2);overflow:hidden}
+.progressbar i{display:block;height:100%;background:var(--ok)}
+
+/* الجداول */
+.toolbar{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:10px}
+@media (max-width:560px){.toolbar{grid-template-columns:1fr}}
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:14px}
+table{border-collapse:collapse;width:100%;font-size:.92rem;min-width:520px}
+th,td{padding:9px 12px;text-align:start;border-bottom:1px solid var(--line);vertical-align:middle}
+th{background:var(--surface-2);font-weight:600;font-size:.82rem;color:var(--muted);white-space:nowrap}
+tr:last-child td{border-bottom:0}
+td input[type=number]{width:96px;min-height:38px;padding:4px 8px}
+tr.done td:first-child{box-shadow:inset -4px 0 0 var(--ok)}
+.empty{padding:26px;text-align:center;display:grid;gap:10px;justify-items:center;color:var(--muted)}
+.modal{position:fixed;inset:0;z-index:50;background:rgba(10,16,20,.55);display:grid;place-items:center;padding:16px}
+.modal .box{background:var(--surface);color:var(--ink);border-radius:16px;max-width:560px;width:100%;max-height:calc(100% - 32px);overflow:auto;padding:20px;display:grid;gap:14px;border:1px solid var(--line)}
+.modal .acts{display:flex;gap:8px;flex-wrap:wrap}
+.sheetopt{border:1px solid var(--line);border-radius:12px;padding:10px 12px;display:grid;gap:8px}
+.toast{position:fixed;bottom:calc(16px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);z-index:60;background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:12px;max-width:calc(100% - 32px)}
+.helpsteps{margin:0;padding-inline-start:22px;display:grid;gap:6px}
+
+/* شاشة الكاميرا: ملء الشاشة بخلفية سوداء ثابتة في الوضعين الفاتح والداكن، لأن الفيديو هو المحتوى */
+#cam{position:fixed;inset:0;z-index:45;background:#000;color:#fff;display:flex;flex-direction:column;
+  padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)}
+.cam-top{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 14px;background:rgba(0,0,0,.6)}
+.cam-top .nm{font-size:1.25rem;font-weight:700;line-height:1.3}
+.cam-top .sub{font-size:.8rem;color:rgba(255,255,255,.7)}
+.cam-score{font-family:var(--f-num);font-size:1.5rem;font-weight:600;padding:2px 12px;border-radius:10px;background:rgba(255,255,255,.12);white-space:nowrap;direction:ltr}
+.cam-score.tent{color:#f5c26b} .cam-score.done{color:#7be0a2}
+.cam-stage{flex:1;min-height:0;display:grid;place-items:center;overflow:hidden}
+.cam-box{position:relative;background:#111}
+.cam-box video,.cam-box canvas{position:absolute;inset:0;width:100%;height:100%}
+.cam-bottom{padding:10px 14px 14px;background:rgba(0,0,0,.65);display:grid;gap:8px}
+.cam-status{font-weight:600;text-align:center;min-height:1.5em}
+.cam-dots{display:flex;gap:6px;justify-content:center;min-height:10px}
+.cam-dots i{width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,.25)}
+.cam-dots i.on{background:#7be0a2}
+.cam-btns{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.cam-btns .btn{min-height:50px;background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.3);color:#fff}
+.cam-btns .btn.primary{background:#2e8b57;border-color:#2e8b57;color:#fff}
+.cam-btns .btn[aria-pressed="true"]{background:#f5c26b;color:#000;border-color:#f5c26b}
+.cam-fix{display:grid;gap:6px;max-height:30vh;overflow:auto}
+.cam-fix .frow{display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:center}
+.cam-fix .bub{width:40px;height:40px;background:transparent;color:#fff;border-color:rgba(255,255,255,.45)}
+.cam-fix .bub[aria-pressed="true"]{background:#2e8b57;border-color:#2e8b57}
+.cam-err{background:rgba(174,51,40,.3);border:1px solid #e57368;border-radius:12px;padding:10px;display:grid;gap:8px;text-align:center}
+</style>
+
+<header class="banner wrap">
+  <div class="banner-in">
+    <div class="banner-art" aria-hidden="true">
+      <svg viewBox="0 0 300 200" preserveAspectRatio="xMidYMid slice">
+        <g fill="none" stroke="rgba(255,255,255,.22)" stroke-width="2">
+          <circle cx="40" cy="30" r="11"/><circle cx="72" cy="30" r="11"/><circle cx="104" cy="30" r="11"/><circle cx="136" cy="30" r="11"/>
+          <circle cx="40" cy="66" r="11"/><circle cx="72" cy="66" r="11"/><circle cx="104" cy="66" r="11"/><circle cx="136" cy="66" r="11"/>
+          <circle cx="40" cy="102" r="11"/><circle cx="72" cy="102" r="11"/><circle cx="104" cy="102" r="11"/><circle cx="136" cy="102" r="11"/>
+          <circle cx="40" cy="138" r="11"/><circle cx="72" cy="138" r="11"/><circle cx="104" cy="138" r="11"/><circle cx="136" cy="138" r="11"/>
+          <circle cx="40" cy="174" r="11"/><circle cx="72" cy="174" r="11"/><circle cx="104" cy="174" r="11"/><circle cx="136" cy="174" r="11"/>
+        </g>
+        <g fill="#F2B457"><circle cx="72" cy="30" r="8"/><circle cx="136" cy="66" r="8"/><circle cx="40" cy="102" r="8"/><circle cx="104" cy="138" r="8"/><circle cx="72" cy="174" r="8"/></g>
+        <g fill="rgba(255,255,255,.12)"><rect x="168" y="14" width="18" height="18" rx="3"/><rect x="168" y="168" width="18" height="18" rx="3"/></g>
+      </svg>
+    </div>
+    <div class="brand">
+      <div class="logo" aria-hidden="true"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z"/></svg></div>
+      <div><h1>المصحح الصوتي</h1><div class="sub">صحّح أوراق الإجابة بالصوت أو الكاميرا، وتُكتب الدرجة أمام اسم الطالب في Excel وتُطبع جاهزة.</div></div>
+    </div>
+    <div class="banner-row">
+      <div class="ctx" id="banner-ctx"></div>
+      <div class="row">
+        <button class="btn sm primary" id="install-btn" data-act="install" hidden>تثبيت التطبيق</button>
+        <span class="chip" id="storage-chip">الحفظ: <b>على هذا الجهاز</b></span>
+      </div>
+    </div>
+  </div>
+</header>
+<div class="wrap" id="pwa-banner" hidden></div>
+
+<nav class="steps" aria-label="خطوات العمل">
+  <ol>
+    <li><button data-act="go" data-step="setup"><span class="dot">1</span>الإعداد</button></li>
+    <li><button data-act="go" data-step="voice"><span class="dot"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z"/></svg></span>التصحيح</button></li>
+    <li><button data-act="go" data-step="results"><span class="dot">3</span>النتائج</button></li>
+    <li><button data-act="go" data-step="export"><span class="dot">4</span>الطباعة</button></li>
+  </ol>
+</nav>
+
+<main class="wrap" style="padding-top:16px">
+  <section id="step-setup" class="wrap" hidden>
+    <details class="card" id="help">
+      <summary><h3 style="display:inline">طريقة الاستخدام</h3></summary>
+      <ol class="helpsteps">
+        <li>أضف كل صف وشعبه: ارفع ملف Excel لكل شعبة، أو ملفاً واحداً فيه ورقة لكل شعبة، أو عموداً للشعبة.</li>
+        <li>اختر الشعبة التي تصحّحها الآن، وحدّد مفتاح إجابات الصف. الشعب في الصف الواحد تشترك في المفتاح.</li>
+        <li>في «التصحيح» اضغط الميكروفون مرة واحدة، ثم قل اسم الطالب وأرقام إجاباته: 1 بدل A، و2 بدل B، و3 بدل C، و4 بدل D. ويمكنك قولها في نَفَس واحد: «ژیار ئازاد 1 2 3 4 احفظ».</li>
+        <li>وضع «كاميرا»: قل اسم الطالب، فتُفتح الكاميرا وتقرأ الدوائر من البث مباشرة وتعرض الدرجة. بعد تثبيت القراءة قل «احفظ». «أعد» لإعادة القراءة، و«سؤال 3، 2» لتصحيح سؤال.</li>
+        <li>إذا تكرر اسم أو كان الطالب مصحَّحاً من قبل، يتوقف التطبيق وينبّهك بصوت ولا يصحّح.</li>
+        <li>لكل صف أكثر من امتحان: «+ امتحان جديد» في الإعداد، ولكل امتحان مفتاحه ودرجة نجاحه.</li>
+        <li>من «الطباعة» اطبع نتائج شعبة أو صف كامل على A4 لامتحان أو أكثر، أو نزّل ملف Excel وفيه عمود لكل امتحان.</li>
+        <li>دون إنترنت: نزّل حزمة اللغة من «العمل دون إنترنت» أدناه وأنت متصل، أو اختر «بترتيب القائمة» لتقرأ الإجابات فقط.</li>
+      </ol>
+    </details>
+    <div class="card" id="classes-card"></div>
+    <div class="card" id="group-card"></div>
+    <div class="card" id="exam-card"></div>
+    <div class="card" id="key-card"></div>
+    <details class="card adv" id="voice-settings"></details>
+    <div class="card" id="offline-card"></div>
+  </section>
+  <section id="step-voice" class="wrap" hidden></section>
+  <section id="step-results" class="wrap" hidden></section>
+  <section id="step-export" class="wrap" hidden></section>
+</main>
+
+<input type="file" id="in-roster" class="hidden-input" accept=".xlsx,.xls,.csv,.ods" aria-hidden="true" tabindex="-1">
+<input type="file" id="in-backup" class="hidden-input" accept=".json,application/json" aria-hidden="true" tabindex="-1">
+<input type="file" id="in-cam-photo" class="hidden-input" accept="image/*" capture="environment" aria-hidden="true" tabindex="-1">
+
+<div id="cam" hidden role="dialog" aria-label="قراءة ورقة الإجابة بالكاميرا">
+  <div class="cam-top">
+    <div><div class="nm" id="cam-name"></div><div class="sub" id="cam-row"></div></div>
+    <div class="cam-score tent" id="cam-score" aria-live="polite">—</div>
+  </div>
+  <div class="cam-stage" id="cam-stage">
+    <div class="cam-box" id="cam-box"><video id="cam-video" playsinline muted autoplay></video><canvas id="cam-ov"></canvas></div>
+  </div>
+  <div class="cam-bottom">
+    <div class="cam-status" id="cam-status" aria-live="polite"></div>
+    <div class="cam-dots" id="cam-dots" aria-hidden="true"></div>
+    <div class="cam-fix" id="cam-fix"></div>
+    <div class="cam-btns">
+      <button class="btn primary" id="cam-save" data-act="cam-save">حفظ</button>
+      <button class="btn" data-act="cam-redo">أعد القراءة</button>
+      <button class="btn" id="cam-torch" data-act="cam-torch" aria-pressed="false" hidden>الفلاش</button>
+      <button class="btn" id="cam-mic" data-act="cam-mic" aria-pressed="false">تشغيل الميكروفون</button>
+      <button class="btn" data-act="cam-cancel">إلغاء</button>
+    </div>
+  </div>
+</div>
+<datalist id="class-list"></datalist>
+<div id="modal-root"></div>
+<div id="print-root" aria-hidden="true"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+<script>
+'use strict';
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+// الخيارات تُقرأ وتُعرض كأرقام 1–4 (افتراضياً) أو كحروف A–D
+const numMode = () => S.settings.choice !== 'letters';
+const optLabels = () => numMode() ? ['1', '2', '3', '4'] : ['A', 'B', 'C', 'D'];
+const STORE_KEY = 'voice-grader-v1';
+const fmt = n => String(Math.round(n * 100) / 100);
+const MIC = '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z"/></svg>';
+const STOP = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor"/></svg>';
+const today = () => { const d = new Date(), p = n => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; };
+const uid = p => p + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+
+/* ---------- الحالة: ملفات، صفوف وشعب، وامتحانات لكل صف (لكل امتحان مفتاحه ودرجاته) ---------- */
+const newKey = () => ({ n: 6, answers: Array(6).fill(null), points: Array(6).fill(1) });
+function defaults() {
+  return {
+    v: 3,
+    files: {},             // fid -> {name, b64}
+    groups: [],            // {id, cls, sec, fid|null, sheet, headerRow, nameCol, scoreCol, secCol, secVal, byExam:{examId:{results:{row:{score,...}}, extras:[]}}}
+    exams: {},             // اسم الصف -> [{id, name, key, pass}]
+    activeExam: {},        // اسم الصف -> رقم الامتحان النشط
+    active: null, seq: 0,
+    settings: { mode: 'answers', camSave: 'manual', camSens: 0.3, choice: 'numbers', nameMode: 'voice', nameLang: 'ar-IQ', ansLang: 'ar-IQ', speak: true, autoSave: false }
+  };
+}
+// تحويل البيانات السابقة: (1) ملف واحد ← صف وشعبة، (2) مفتاح واحد لكل صف ← امتحان أول باسم «الامتحان الأول»
+function migrate(d) {
+  let s;
+  if (d && d.v === 3) { s = Object.assign(defaults(), d); s.settings = Object.assign(defaults().settings, d.settings || {}); return s; }
+  if (d && d.v === 2) { s = Object.assign(defaults(), d); s.settings = Object.assign(defaults().settings, d.settings || {}); s.keys = d.keys || {}; }
+  else {
+    s = defaults(); s.keys = {};
+    if (d) {
+      s.settings = Object.assign(s.settings, d.settings || {}); delete s.settings.chain; s.seq = d.seq || 0;
+      const cls = 'الصف الأول';
+      if (d.key) s.keys[cls] = d.key;
+      if (d.roster) {
+        s.files.f1 = { name: d.roster.fileName, b64: d.roster.b64 };
+        s.groups.push({ id: 'g1', cls, sec: 'أ', fid: 'f1', sheet: d.roster.sheet, headerRow: d.roster.headerRow, nameCol: d.roster.nameCol, scoreCol: d.roster.scoreCol, secCol: -1, secVal: null, results: d.results || {}, extras: d.extras || [] });
+        s.active = 'g1';
+      }
+    }
+  }
+  for (const cls of new Set(s.groups.map(g => g.cls))) {
+    const ex = { id: uid('e'), name: 'الامتحان الأول', key: s.keys[cls] || newKey(), pass: null };
+    s.exams[cls] = [ex]; s.activeExam[cls] = ex.id;
+    s.groups.filter(g => g.cls === cls).forEach(g => { g.byExam = { [ex.id]: { results: g['results'] || {}, extras: g['extras'] || [] } }; delete g['results']; delete g['extras']; });
+  }
+  delete s.keys; s.v = 3;
+  return s;
+}
+let S = defaults(), storageOk = true;
+function loadState() {
+  try { const t = localStorage.getItem(STORE_KEY); if (t) S = migrate(JSON.parse(t)); } catch (e) { storageOk = false; }
+}
+function save() {
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(S)); storageOk = true; } catch (e) { storageOk = false; }
+  const c = $('#storage-chip');
+  c.className = storageOk ? 'chip' : 'chip bad';
+  c.innerHTML = storageOk ? 'الحفظ: <b>على هذا الجهاز</b>' : 'تعذّر الحفظ المحلي — نزّل نسخة احتياطية';
+}
+const G = () => S.groups.find(g => g.id === S.active) || null;
+const gLabel = g => `${g.cls} — شعبة ${g.sec}`;
+const classes = () => [...new Set(S.groups.map(g => g.cls))];
+// الامتحانات: لكل صف قائمة امتحانات، وواحد منها نشط للتصحيح
+function examsOf(cls) {
+  if (!S.exams[cls] || !S.exams[cls].length) { const ex = { id: uid('e'), name: 'الامتحان الأول', key: newKey(), pass: null }; S.exams[cls] = [ex]; S.activeExam[cls] = ex.id; }
+  return S.exams[cls];
+}
+function curExam(cls) {
+  const list = examsOf(cls);
+  return list.find(e => e.id === S.activeExam[cls]) || (S.activeExam[cls] = list[0].id, list[0]);
+}
+const examById = (cls, id) => examsOf(cls).find(e => e.id === id);
+const bucket = (g, exId) => { g.byExam ||= {}; return (g.byExam[exId || curExam(g.cls).id] ||= { results: {}, extras: [] }); };
+const RES = (g, exId) => bucket(g, exId).results;     // درجات الشعبة في الامتحان (النشط افتراضياً)
+const EXT = (g, exId) => bucket(g, exId).extras;
+const keyFor = cls => curExam(cls).key;
+const K = () => G() ? keyFor(G().cls) : newKey();
+const examMax = ex => ex.key.points.slice(0, ex.key.n).reduce((a, b) => a + (+b || 0), 0);
+const passMark = ex => ex.pass != null && ex.pass !== '' ? +ex.pass : examMax(ex) / 2;
+
+/* ---------- المفتاح والدرجات ---------- */
+const keyN = () => K().n;
+const keyComplete = () => K().answers.slice(0, keyN()).every(a => a != null);
+const maxScore = () => K().points.slice(0, keyN()).reduce((a, b) => a + (+b || 0), 0);
+function scoreAnswers(ans) {
+  const k = K(); let t = 0;
+  for (let i = 0; i < k.n; i++) if (ans[i] != null && ans[i] >= 0 && ans[i] === k.answers[i]) t += +k.points[i] || 0;
+  return t;
+}
+function setN(n) {
+  n = Math.max(1, Math.min(100, n | 0));
+  const k = K(), last = k.points[k.points.length - 1] ?? 1;
+  while (k.answers.length < n) k.answers.push(null);
+  while (k.points.length < n) k.points.push(last);
+  k.answers.length = n; k.points.length = n; k.n = n;
+}
+
+/* ---------- تطبيع النصوص العربية والكردية ---------- */
+function basic(s) {
+  return String(s || '').normalize('NFKC').toLowerCase()
+    .replace(/[ً-ٰٟـ‌‍‎‏]/g, '')
+    .replace(/[أإآٱ]/g, 'ا').replace(/[ىیيې]/g, 'ي').replace(/[كک]/g, 'ك').replace(/[ةھہە]/g, 'ه').replace(/[ؤۇۉ]/g, 'و')
+    .replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d))
+    .replace(/[^\p{L}\p{N}\s.]/gu, ' ').replace(/\s+/g, ' ').trim();
+}
+const LOOSE = { 'ێ': 'ي', 'ۆ': 'و', 'ڵ': 'ل', 'ڕ': 'ر', 'پ': 'ب', 'چ': 'ج', 'ژ': 'ز', 'ڤ': 'ف', 'گ': 'ك', 'ئ': 'ا', 'ء': '' };
+const loose = s => basic(s).replace(/[ێۆڵڕپچژڤگئء]/g, c => LOOSE[c]);
+// مقارنة صوتية: الحروف الكردية تُعامل كقريبة من نظيراتها العربية (ژ/ج/ز، ڤ/ف، پ/ب، گ/ك، ێ/ي، ۆ/و، ڵ/ل، ڕ/ر، چ/ج)
+const NEAR = [['ي', 'ێ', 'ئ'], ['و', 'ۆ'], ['ل', 'ڵ'], ['ر', 'ڕ'], ['ب', 'پ'], ['ج', 'چ', 'ژ', 'ش'], ['ز', 'ژ', 'ذ', 'ظ', 'ض'], ['ف', 'ڤ'],
+  ['ك', 'گ', 'ق'], ['غ', 'گ', 'خ'], ['س', 'ص', 'ث'], ['ت', 'ط'], ['د', 'ض'], ['ح', 'ه', 'خ'], ['ع', 'ا', 'ئ', 'ء'], ['ه', 'ا']];
+const NEARSET = new Set(); NEAR.forEach(g => g.forEach(a => g.forEach(b => { if (a !== b) NEARSET.add(a + b); })));
+const SOFT = new Set(['ا', 'و', 'ي', 'ه', 'ێ', 'ۆ', 'ئ', 'ع', 'ء']);
+const subCost = (a, b) => a === b ? 0 : NEARSET.has(a + b) ? 0.25 : 1;
+const indel = c => SOFT.has(c) ? 0.4 : 1;
+function phonDist(a, b) {
+  const m = a.length, n = b.length;
+  let prev = new Float32Array(n + 1), cur = new Float32Array(n + 1);
+  for (let j = 1; j <= n; j++) prev[j] = prev[j - 1] + indel(b[j - 1]);
+  for (let i = 1; i <= m; i++) {
+    cur[0] = prev[0] + indel(a[i - 1]);
+    for (let j = 1; j <= n; j++) cur[j] = Math.min(prev[j] + indel(a[i - 1]), cur[j - 1] + indel(b[j - 1]), prev[j - 1] + subCost(a[i - 1], b[j - 1]));
+    [prev, cur] = [cur, prev];
+  }
+  return prev[n];
+}
+const nameKey = s => basic(s).replace(/[^\p{L}\s]/gu, '').trim();
+// اسم مسموع بحروف لاتينية (من التعرّف الإنجليزي أو الكرمانجي) يُحوَّل صوتياً إلى الحروف الكردية/العربية قبل المقارنة
+const LAT2 = [['sh', 'ش'], ['zh', 'ژ'], ['ch', 'چ'], ['kh', 'خ'], ['gh', 'غ'], ['th', 'ث'], ['dh', 'ذ'], ['ph', 'ف'], ['aa', 'ا'], ['ee', 'ی'], ['ii', 'ی'], ['oo', 'و'], ['ou', 'و']];
+const LAT1 = { a: 'ا', b: 'ب', c: 'ک', d: 'د', e: 'ە', 'ê': 'ێ', 'é': 'ێ', f: 'ف', g: 'گ', h: 'ه', i: 'ی', 'î': 'ی', j: 'ج', k: 'ک', l: 'ل', m: 'م', n: 'ن', o: 'ۆ', 'ö': 'ۆ', p: 'پ', q: 'ق', r: 'ر', s: 'س', 'ş': 'ش', t: 'ت', u: 'و', 'û': 'و', 'ü': 'و', v: 'ڤ', w: 'و', x: 'خ', y: 'ی', z: 'ز', 'ç': 'چ' };
+function latinToArabic(s) {
+  let t = String(s).toLowerCase();
+  for (const [a, b] of LAT2) t = t.split(a).join(b);
+  return t.replace(/[a-zçşêîûéöü]/g, c => LAT1[c] || '');
+}
+function nameSim(heard, target) {
+  if (/[a-z]/i.test(heard)) heard = latinToArabic(heard);
+  const h = nameKey(heard), t = nameKey(target);
+  if (!h || !t) return 0;
+  const hs = h.replace(/ /g, ''), toks = t.split(' ');
+  let best = 0;
+  for (let k = toks.length; k >= 1; k--) {
+    const ts = toks.slice(0, k).join('');
+    const s = 1 - phonDist(hs, ts) / Math.max(hs.length, ts.length) - (k < toks.length ? 0.04 * (toks.length - k) : 0);
+    if (s > best) best = s;
+  }
+  return Math.max(0, best);
+}
+
+/* ---------- ملفات Excel ---------- */
+const WB = {};   // fid -> {wb, sheets:{name:{aoa,r0,c0}}}
+const b64ToBytes = b => { const s = atob(b), u = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i); return u; };
+function bytesToB64(u) { let s = ''; for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000)); return btoa(s); }
+function sheetOf(wb, name) {
+  const ws = wb.Sheets[name]; if (!ws) return null;
+  const rg = ws['!ref'] ? XLSX.utils.decode_range(ws['!ref']) : { s: { r: 0, c: 0 } };
+  return { aoa: XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: false, blankrows: true }), r0: rg.s.r, c0: rg.s.c };
+}
+function sheetData(fid, sheet) {
+  const f = S.files[fid]; if (!f) return null;
+  let c = WB[fid];
+  if (!c) { try { c = WB[fid] = { wb: XLSX.read(b64ToBytes(f.b64), { type: 'array' }), sheets: {} }; } catch (e) { return null; } }
+  if (!c.sheets[sheet]) { const d = sheetOf(c.wb, sheet); if (!d) return null; c.sheets[sheet] = d; }
+  return c.sheets[sheet];
+}
+function students(g = G()) {
+  if (!g || !g.fid) return [];
+  const d = sheetData(g.fid, g.sheet); if (!d) return [];
+  const sv = g.secCol >= 0 ? nameKey(g.secVal) : null, out = [];
+  for (let r = g.headerRow + 1; r < d.aoa.length; r++) {
+    const row = d.aoa[r] || [], nm = String(row[g.nameCol] ?? '').trim();
+    if (!nm || !/\p{L}/u.test(nm)) continue;
+    if (sv != null && nameKey(String(row[g.secCol] ?? '')) !== sv) continue;
+    out.push({ row: r, name: nm });
+  }
+  return out;
+}
+const studentName = (row, g = G()) => { const d = g && g.fid && sheetData(g.fid, g.sheet); return d ? String(d.aoa[row]?.[g.nameCol] ?? '').trim() : ''; };
+const rowNo = (row, g = G()) => { const d = sheetData(g.fid, g.sheet); return (d ? d.r0 : 0) + row + 1; };
+function dupGroups(g = G()) {
+  const m = {}; students(g).forEach(s => (m[nameKey(s.name)] ||= []).push(s));
+  return Object.values(m).filter(x => x.length > 1);
+}
+const NAME_HDR = /اسم|الاسم|ناو|ناڤ|نێو|name|student|الطالب|قوتابی/i;
+const SCORE_HDR = /درجة|الدرجة|النتيجة|نتيجة|المجموع|نمره|نمرە|نمرة|ئەنجام|انجام|score|grade|mark|total/i;
+const SEC_HDR = /شعب|الشعبة|شعبه|بەش|بش|section|division/i;
+function detectCols(aoa) {
+  let headerRow = -1, nameCol = -1, scoreCol = -1, secCol = -1;
+  outer: for (let r = 0; r < Math.min(12, aoa.length); r++) for (let c = 0; c < aoa[r].length; c++) {
+    if (NAME_HDR.test(String(aoa[r][c]))) { headerRow = r; nameCol = c; break outer; }
+  }
+  if (nameCol < 0) {
+    const width = Math.max(1, ...aoa.map(r => r.length)); let best = 0;
+    for (let c = 0; c < width; c++) { const k = aoa.filter(r => /\p{L}{2,}/u.test(String(r[c] ?? ''))).length; if (k > best) { best = k; nameCol = c; } }
+    if (nameCol < 0) nameCol = 0;
+  }
+  if (headerRow >= 0) aoa[headerRow].forEach((v, c) => {
+    if (c === nameCol) return;
+    if (scoreCol < 0 && SCORE_HDR.test(String(v))) scoreCol = c;
+    else if (secCol < 0 && SEC_HDR.test(String(v))) secCol = c;
+  });
+  return { headerRow, nameCol, scoreCol, secCol };
+}
+
+/* ---------- رفع ملف أسماء: صف + شعبة (أو عدة شعب) ---------- */
+let pendingUpload = null;
+async function onRosterFile(file) {
+  try {
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    const wb = XLSX.read(bytes, { type: 'array' });
+    const sheets = wb.SheetNames.map(name => {
+      const d = sheetOf(wb, name), cols = detectCols(d.aoa);
+      const names = [];
+      for (let r = cols.headerRow + 1; r < d.aoa.length; r++) { const nm = String(d.aoa[r]?.[cols.nameCol] ?? '').trim(); if (nm && /\p{L}/u.test(nm)) names.push(r); }
+      const secVals = cols.secCol >= 0 ? [...new Set(names.map(r => String(d.aoa[r][cols.secCol] ?? '').trim()).filter(Boolean))] : [];
+      return { name, cols, count: names.length, secVals };
+    }).filter(s => s.count > 0);
+    if (!sheets.length) return toast('لم يُعثر على أسماء في هذا الملف.');
+    pendingUpload = { fileName: file.name, b64: bytesToB64(bytes), sheets };
+    showUploadDialog();
+  } catch (e) { console.error(e); toast('تعذّرت قراءة الملف. استخدم ملف Excel (.xlsx) أو CSV.'); }
+}
+function showUploadDialog() {
+  const P = pendingUpload, multi = P.sheets.length > 1, cur = G();
+  const guessCls = (P.fileName.replace(/\.[^.]+$/, '').match(/(الصف\s*\S+|پۆلی\s*\S+)/) || [])[0] || (cur ? cur.cls : '');
+  modal({
+    title: 'إضافة صف وشعبة',
+    body: `<div class="wrap" style="gap:12px">
+      <p class="small muted">${esc(P.fileName)}</p>
+      <label class="field">اسم الصف<input type="text" id="up-cls" list="class-list" value="${esc(guessCls)}" placeholder="مثال: الصف الخامس"></label>
+      ${P.sheets.map((s, i) => `<div class="sheetopt">
+        ${multi ? `<label class="check"><input type="checkbox" id="up-inc-${i}" checked> ورقة «${esc(s.name)}» — <span class="num">${s.count}</span> طالباً</label>` : `<span class="small muted"><span class="num">${s.count}</span> طالباً</span>`}
+        ${s.secVals.length > 1 ? `<label class="check"><input type="checkbox" id="up-split-${i}" checked> تقسيم حسب عمود الشعبة: ${s.secVals.map(esc).join('، ')}</label>` : ''}
+        <label class="field">اسم الشعبة${s.secVals.length > 1 ? ' (عند عدم التقسيم)' : ''}<input type="text" id="up-sec-${i}" value="${esc(s.secVals.length === 1 ? s.secVals[0] : multi ? s.name : '')}" placeholder="مثال: أ"></label>
+      </div>`).join('')}
+    </div>`,
+    actions: [
+      { label: 'إضافة', kind: 'primary', onClick: () => addFromUpload() },
+      { label: 'إلغاء', onClick: () => { pendingUpload = null; } }
+    ]
+  });
+  setTimeout(() => $('#up-cls')?.focus(), 40);
+}
+function addFromUpload() {
+  const P = pendingUpload, cls = $('#up-cls').value.trim();
+  if (!cls) { toast('اكتب اسم الصف'); return false; }
+  const plan = [];
+  P.sheets.forEach((s, i) => {
+    const inc = $('#up-inc-' + i); if (inc && !inc.checked) return;
+    const split = $('#up-split-' + i)?.checked;
+    if (split) s.secVals.forEach(v => plan.push({ s, sec: v, secCol: s.cols.secCol, secVal: v }));
+    else plan.push({ s, sec: $('#up-sec-' + i).value.trim(), secCol: -1, secVal: null });
+  });
+  if (!plan.length) { toast('اختر ورقة واحدة على الأقل'); return false; }
+  if (plan.some(p => !p.sec)) { toast('اكتب اسم الشعبة'); return false; }
+  const secs = plan.map(p => p.sec);
+  if (new Set(secs).size !== secs.length) { toast('أسماء الشعب مكررة في هذا الملف'); return false; }
+  const clash = plan.find(p => S.groups.some(g => g.cls === cls && g.sec === p.sec));
+  if (clash) { toast(`الشعبة «${clash.sec}» موجودة مسبقاً في ${cls}. احذفها أولاً أو غيّر الاسم.`); return false; }
+  const fid = uid('f');
+  S.files[fid] = { name: P.fileName, b64: P.b64 };
+  let first = null;
+  for (const p of plan) {
+    const g = { id: uid('g'), cls, sec: p.sec, fid, sheet: p.s.name, headerRow: p.s.cols.headerRow, nameCol: p.s.cols.nameCol, scoreCol: p.s.cols.scoreCol, secCol: p.secCol, secVal: p.secVal, byExam: {} };
+    S.groups.push(g); first ||= g;
+  }
+  examsOf(cls); S.active = first.id; pendingUpload = null;
+  save(); render();
+  const dups = plan.reduce((n, p) => n, 0) + S.groups.filter(g => g.fid === fid).reduce((n, g) => n + dupGroups(g).length, 0);
+  toast(`أُضيف ${cls}: ${plan.length === 1 ? 'شعبة ' + plan[0].sec : plan.length + ' شعب'}${dups ? ` — تنبيه: ${dups} أسماء مكررة` : ''}`);
+}
+function deleteGroup(id) {
+  const g = S.groups.find(x => x.id === id); if (!g) return;
+  const n = Object.keys(RES(g)).length + EXT(g).length;
+  modal({
+    title: `حذف ${gLabel(g)}؟`, body: `<p>تُحذف الشعبة${n ? ` و<b class="num">${n}</b> درجة محفوظة لها` : ''} من هذا الجهاز. ملفك الأصلي لا يتأثر.</p>`,
+    actions: [{ label: 'حذف الشعبة', kind: 'danger solid', onClick: () => {
+      S.groups = S.groups.filter(x => x.id !== id);
+      if (g.fid && !S.groups.some(x => x.fid === g.fid)) { delete S.files[g.fid]; delete WB[g.fid]; }
+      if (!S.groups.some(x => x.cls === g.cls)) { delete S.exams[g.cls]; delete S.activeExam[g.cls]; }
+      if (S.active === id) S.active = S.groups[0]?.id || null;
+      save(); render();
+    } }, { label: 'إلغاء' }]
+  });
+}
+function addEmptyGroup() {
+  modal({
+    title: 'شعبة بدون ملف أسماء', body: `<p class="small muted">تُحفظ الأسماء كما تُسمع، وتُصدَّر في ملف جديد.</p>
+      <div class="grid2"><label class="field">اسم الصف<input type="text" id="ne-cls" list="class-list" value="${esc(G()?.cls || '')}"></label><label class="field">اسم الشعبة<input type="text" id="ne-sec"></label></div>`,
+    actions: [{ label: 'إضافة', kind: 'primary', onClick: () => {
+      const cls = $('#ne-cls').value.trim(), sec = $('#ne-sec').value.trim();
+      if (!cls || !sec) { toast('اكتب اسم الصف والشعبة'); return false; }
+      if (S.groups.some(g => g.cls === cls && g.sec === sec)) { toast('هذه الشعبة موجودة مسبقاً'); return false; }
+      const g = { id: uid('g'), cls, sec, fid: null, sheet: '', headerRow: -1, nameCol: 0, scoreCol: -1, secCol: -1, secVal: null, byExam: {} };
+      S.groups.push(g); examsOf(cls); S.active = g.id; save(); render();
+    } }, { label: 'إلغاء' }]
+  });
+}
+function renameGroup(id) {
+  const g = S.groups.find(x => x.id === id); if (!g) return;
+  modal({
+    title: 'تعديل الاسم', body: `<div class="grid2"><label class="field">الصف<input type="text" id="rn-cls" list="class-list" value="${esc(g.cls)}"></label><label class="field">الشعبة<input type="text" id="rn-sec" value="${esc(g.sec)}"></label></div>`,
+    actions: [{ label: 'حفظ', kind: 'primary', onClick: () => {
+      const cls = $('#rn-cls').value.trim(), sec = $('#rn-sec').value.trim();
+      if (!cls || !sec) { toast('اكتب اسم الصف والشعبة'); return false; }
+      if (S.groups.some(x => x !== g && x.cls === cls && x.sec === sec)) { toast('هذه الشعبة موجودة مسبقاً'); return false; }
+      const old = g.cls;
+      if (cls !== old) {
+        const src = examsOf(old), alone = !S.groups.some(x => x !== g && x.cls === old);
+        if (!S.exams[cls] || !S.exams[cls].length) {   // صف جديد: تنتقل الامتحانات معه
+          S.exams[cls] = alone ? src : JSON.parse(JSON.stringify(src)); S.activeExam[cls] = S.activeExam[old];
+        } else {   // صف موجود: تُربط الدرجات بامتحاناته بالاسم ثم بالترتيب
+          const dst = S.exams[cls], moved = {};
+          src.forEach((e, i) => { const t = dst.find(x => x.name === e.name) || dst[i]; if (t && g.byExam && g.byExam[e.id]) moved[t.id] = g.byExam[e.id]; });
+          g.byExam = moved;
+        }
+        if (alone) { delete S.exams[old]; delete S.activeExam[old]; }
+      }
+      g.cls = cls; g.sec = sec;
+      save(); render();
+    } }, { label: 'إلغاء' }]
+  });
+}
+
+/* ---------- التصدير ---------- */
+async function saveFile(filename, data) {
+  try {
+    if (window.claude && typeof window.claude.use === 'function') {
+      const dl = await window.claude.use('downloads');
+      if (dl) {
+        try { await dl.save({ filename, data }); toast('جُهّز الملف للحفظ: ' + filename); return; }
+        catch (e) {
+          if (e && e.code === 'declined') { toast('أُلغي التحميل'); return; }
+          if (e && e.code === 'rate_limited') { toast('توجد نافذة حفظ مفتوحة؛ أكملها ثم حاول مجدداً'); return; }
+        }
+      }
+    }
+  } catch (e) {}
+  const blob = data instanceof Blob ? data : new Blob([data]);
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  toast('بدأ تنزيل ' + filename);
+}
+// تنسيق الخلايا: الدرجة في وسط الخلية، والراسب بتظليل أحمر خفيف، وعناوين الأعمدة الجديدة بخط عريض
+const XS = {
+  score: { alignment: { horizontal: 'center', vertical: 'center' } },
+  fail: { alignment: { horizontal: 'center', vertical: 'center' }, fill: { patternType: 'solid', fgColor: { rgb: 'FDE3E1' } }, font: { color: { rgb: '9B2C22' } } },
+  head: { alignment: { horizontal: 'center', vertical: 'center', wrapText: true }, font: { bold: true, color: { rgb: '0B4D55' } }, fill: { patternType: 'solid', fgColor: { rgb: 'E2F0EF' } } }
+};
+const scoreCell = (v, ex) => ({ t: 'n', v, s: v < passMark(ex) ? XS.fail : XS.score });
+// يكتب الدرجة النهائية لكل امتحان في عموده أمام اسم كل طالب، لكل الشعب المأخوذة من الملف نفسه
+function buildFileWorkbook(fid) {
+  const wb = XLSX.read(b64ToBytes(S.files[fid].b64), { type: 'array', cellStyles: true });
+  const gs = S.groups.filter(g => g.fid === fid);
+  let written = 0;
+  const colOf = {}, nextFree = {};
+  for (const g of gs) {
+    const ws = wb.Sheets[g.sheet]; if (!ws) continue;
+    const d = sheetData(fid, g.sheet), rg = XLSX.utils.decode_range(ws['!ref'] || 'A1');
+    const header = g.headerRow >= 0 ? d.aoa[g.headerRow] || [] : [];
+    const exams = examsOf(g.cls).filter(ex => Object.keys(RES(g, ex.id)).length || exams1(g));
+    nextFree[g.sheet] ??= Math.max(1, ...d.aoa.map(r => r.length));
+    exams.forEach((ex, i) => {
+      const k = g.sheet + '|' + ex.id;
+      if (colOf[k] == null) {
+        let c = header.findIndex(h => String(h).trim() === ex.name.trim());
+        if (c < 0 && i === 0 && g.scoreCol >= 0) c = g.scoreCol;
+        if (c < 0) {
+          c = nextFree[g.sheet]++;
+          if (g.headerRow >= 0) ws[XLSX.utils.encode_cell({ r: d.r0 + g.headerRow, c: d.c0 + c })] = { t: 's', v: examsOf(g.cls).length > 1 ? ex.name : 'الدرجة', s: XS.head };
+        }
+        colOf[k] = c;
+      }
+      const col = colOf[k];
+      for (const s of students(g)) {
+        const res = RES(g, ex.id)[s.row]; if (!res) continue;
+        ws[XLSX.utils.encode_cell({ r: d.r0 + s.row, c: d.c0 + col })] = scoreCell(res.score, ex); written++;
+      }
+      rg.e.c = Math.max(rg.e.c, d.c0 + col);
+      ws['!cols'] = ws['!cols'] || []; ws['!cols'][d.c0 + col] = Object.assign({ wch: 12 }, ws['!cols'][d.c0 + col] || {});
+    });
+    ws['!ref'] = XLSX.utils.encode_range(rg);
+  }
+  const extras = gs.flatMap(g => examsOf(g.cls).flatMap(ex => EXT(g, ex.id).map(x => [x.name, g.sec, ex.name, scoreCell(x.score, ex)])));
+  if (extras.length) {
+    const ws2 = XLSX.utils.aoa_to_sheet([['اسم الطالب', 'الشعبة', 'الامتحان', 'الدرجة'].map(v => ({ v, t: 's', s: XS.head })), ...extras]);
+    ws2['!cols'] = [{ wch: 30 }, { wch: 10 }, { wch: 18 }, { wch: 10 }];
+    let nm = 'غير مطابقة'; while (wb.SheetNames.includes(nm)) nm += '_';
+    XLSX.utils.book_append_sheet(wb, ws2, nm);
+  }
+  wb.Workbook = wb.Workbook || {}; wb.Workbook.Views = wb.Workbook.Views && wb.Workbook.Views.length ? wb.Workbook.Views : [{}]; wb.Workbook.Views[0].RTL = true;
+  return { wb, written: written + extras.length };
+}
+async function exportFile(fid) {
+  const { wb, written } = buildFileWorkbook(fid);
+  if (!written) return toast('لا توجد درجات محفوظة لهذا الملف بعد');
+  const gs = S.groups.filter(g => g.fid === fid);
+  const tag = [...new Set(gs.map(g => g.cls))].join('-');
+  await saveFile(`${S.files[fid].name.replace(/\.[^.]+$/, '')}-${tag}-الدرجات-${today()}.xlsx`.replace(/[\\/:*?"<>|]/g, '_'), new Blob([XLSX.write(wb, { bookType: 'xlsx', type: 'array' })]));
+}
+// امتحان بلا درجات يُصدَّر عموده أيضاً إذا كان وحيداً، حتى يبقى شكل الملف كما اعتاده المعلم
+function exams1(g) { return examsOf(g.cls).length === 1; }
+async function exportNoFile(g) {
+  const exams = examsOf(g.cls), names = [...new Set(exams.flatMap(ex => EXT(g, ex.id).map(x => x.name)))];
+  if (!names.length) return toast('لا توجد درجات محفوظة لهذه الشعبة بعد');
+  const wb = XLSX.utils.book_new(); wb.Workbook = { Views: [{ RTL: true }] };
+  const rows = names.sort((a, b) => a.localeCompare(b, 'ar')).map(n => [n, ...exams.map(ex => { const x = EXT(g, ex.id).find(e => e.name === n); return x ? scoreCell(x.score, ex) : ''; })]);
+  const ws = XLSX.utils.aoa_to_sheet([['اسم الطالب', ...exams.map(e => e.name)].map(v => ({ v, t: 's', s: XS.head })), ...rows]);
+  ws['!cols'] = [{ wch: 30 }, ...exams.map(() => ({ wch: 14 }))];
+  XLSX.utils.book_append_sheet(wb, ws, 'الدرجات');
+  await saveFile(`${g.cls}-${g.sec}-الدرجات-${today()}.xlsx`.replace(/[\\/:*?"<>|]/g, '_'), new Blob([XLSX.write(wb, { bookType: 'xlsx', type: 'array' })]));
+}
+const exportGroup = g => g.fid ? exportFile(g.fid) : exportNoFile(g);
+
+/* ---------- واجهة عامة ---------- */
+let toastTimer;
+function toast(msg) {
+  let t = $('.toast'); if (!t) { t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); document.body.appendChild(t); }
+  t.textContent = msg; t.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true; }, 3400);
+}
+function modal({ title, body, actions }) {
+  const root = $('#modal-root');
+  root.innerHTML = `<div class="modal" role="dialog" aria-modal="true" aria-labelledby="mdl-t"><div class="box"><h3 id="mdl-t">${esc(title)}</h3><div>${body}</div><div class="acts">${actions.map((a, i) => `<button class="btn ${a.kind || ''}" data-mi="${i}">${esc(a.label)}</button>`).join('')}</div></div></div>`;
+  $$('[data-mi]', root).forEach(b => b.onclick = () => { const a = actions[+b.dataset.mi]; const r = a.onClick ? a.onClick() : undefined; if (r !== false) root.innerHTML = ''; });
+  setTimeout(() => { if (!root.querySelector('input')) $('[data-mi]', root)?.focus(); }, 30);
+}
+function keepFocus(fn) {
+  const a = document.activeElement, id = a && a.id, s = a && a.selectionStart, e = a && a.selectionEnd;
+  fn();
+  if (id) { const n = document.getElementById(id); if (n && n !== a) { n.focus(); try { if (s != null) n.setSelectionRange(s, e); } catch (_) {} } }
+}
+let step = 'setup';
+function go(s) {
+  if (s !== 'voice') { endSession(); stopCamera(); if (CAL) { try { CAL.rec && CAL.rec.abort(); } catch (e) {} CAL = null; } }
+  step = s;
+  for (const k of ['setup', 'voice', 'results', 'export']) $('#step-' + k).hidden = k !== s;
+  $$('.steps button').forEach(b => b.setAttribute('aria-current', b.dataset.step === s ? 'step' : 'false'));
+  render(); window.scrollTo(0, 0);
+}
+function render() {
+  $('#class-list').innerHTML = classes().map(c => `<option value="${esc(c)}">`).join('');
+  if (step === 'setup') { renderClasses(); renderGroup(); renderExams(); renderKey(); renderVoiceSettings(); renderOffline(); }
+  renderBanner();
+  if (step === 'voice') renderVoice();
+  if (step === 'results') renderResults();
+  if (step === 'export') renderExport();
+}
+function groupSelect(id) {
+  if (!S.groups.length) return '';
+  return `<select id="${id}" aria-label="الصف والشعبة">${classes().map(c => `<optgroup label="${esc(c)}">${S.groups.filter(g => g.cls === c).map(g => `<option value="${g.id}" ${g.id === S.active ? 'selected' : ''}>${esc(c)} — شعبة ${esc(g.sec)}</option>`).join('')}</optgroup>`).join('')}</select>`;
+}
+function switchGroup(id) { S.active = id; save(); V = newV(); render(); }
+// سطر السياق في البانر: الصف · الشعبة · الامتحان · التقدّم
+function renderBanner() {
+  const el = $('#banner-ctx'); if (!el) return;
+  const g = G();
+  if (!g) { el.innerHTML = '<span>ابدأ برفع ملف أسماء الطلبة</span>'; return; }
+  const ex = curExam(g.cls), n = students(g).length, done = Object.keys(RES(g)).length;
+  el.innerHTML = `<span>${esc(g.cls)}</span><span>شعبة ${esc(g.sec)}</span><span>${esc(ex.name)}</span>${g.fid ? `<span>صُحّح <b class="num">${done}</b> من <b class="num">${n}</b></span>` : ''}`;
+}
+// قائمة امتحانات الصف الحالي للتبديل السريع (في التصحيح والنتائج)
+function examSelect(id) {
+  const g = G(); if (!g) return '';
+  const cur = curExam(g.cls);
+  return `<select id="${id}" class="exam-select" aria-label="الامتحان">${examsOf(g.cls).map(e => `<option value="${e.id}" ${e.id === cur.id ? 'selected' : ''}>${esc(e.name)}</option>`).join('')}</select>`;
+}
+function switchExam(id) { const g = G(); if (!g) return; S.activeExam[g.cls] = id; save(); endSession(); stopCamera(); V = newV(); render(); toast('الامتحان النشط: ' + curExam(g.cls).name); }
+function renderExams() {
+  const el = $('#exam-card'), g = G();
+  if (!g) { el.hidden = true; return; }
+  el.hidden = false;
+  const list = examsOf(g.cls), cur = curExam(g.cls), sts = S.groups.filter(x => x.cls === g.cls);
+  el.innerHTML = `<div class="card-head"><div><h2>امتحانات ${esc(g.cls)}</h2><p class="muted small">لكل امتحان مفتاح إجاباته ودرجاته. التصحيح يُسجَّل في الامتحان المختار.</p></div>
+      <button class="btn primary" data-act="exam-add">+ امتحان جديد</button></div>
+    <div class="exam-list">${list.map(e => {
+      const done = sts.reduce((n, x) => n + Object.keys(RES(x, e.id)).length + EXT(x, e.id).length, 0);
+      return `<button class="exam ${e.id === cur.id ? 'on' : ''}" data-act="exam-pick" data-id="${e.id}" aria-pressed="${e.id === cur.id}"><b>${esc(e.name)}</b><span class="small"><span class="num">${done}</span> درجة · من <span class="num">${fmt(examMax(e))}</span> · النجاح <span class="num">${fmt(passMark(e))}</span></span></button>`;
+    }).join('')}</div>
+    <div class="grid2">
+      <label class="field">اسم الامتحان المختار<input type="text" id="exam-name" value="${esc(cur.name)}"></label>
+      <label class="field">درجة النجاح (الافتراضي نصف المجموع)<input type="number" id="exam-pass" min="0" step="0.25" value="${cur.pass ?? ''}" placeholder="${fmt(examMax(cur) / 2)}"></label>
+    </div>
+    ${list.length > 1 ? `<div class="row"><button class="btn sm danger" data-act="exam-del">حذف هذا الامتحان ودرجاته</button></div>` : ''}`;
+}
+function addExam() {
+  const g = G(); if (!g) return;
+  const list = examsOf(g.cls), cur = curExam(g.cls);
+  modal({
+    title: 'امتحان جديد لـ ' + g.cls,
+    body: `<div class="wrap" style="gap:12px"><label class="field">اسم الامتحان<input type="text" id="ne-exam" placeholder="مثال: الامتحان الشهري الثاني" value="الامتحان ${['الأول', 'الثاني', 'الثالث', 'الرابع', 'الخامس', 'السادس', 'السابع', 'الثامن'][list.length] || (list.length + 1)}"></label>
+      <label class="check"><input type="checkbox" id="ne-copy"> نسخ عدد الأسئلة والدرجات من «${esc(cur.name)}» (دون الإجابات الصحيحة)</label></div>`,
+    actions: [{ label: 'إضافة', kind: 'primary', onClick: () => {
+      const name = $('#ne-exam').value.trim();
+      if (!name) { toast('اكتب اسم الامتحان'); return false; }
+      if (list.some(e => e.name === name)) { toast('يوجد امتحان بهذا الاسم'); return false; }
+      const key = $('#ne-copy').checked ? { n: cur.key.n, answers: Array(cur.key.n).fill(null), points: cur.key.points.slice() } : newKey();
+      const ex = { id: uid('e'), name, key, pass: null };
+      list.push(ex); S.activeExam[g.cls] = ex.id; save(); V = newV(); render(); toast('أُضيف «' + name + '» وصار الامتحان النشط');
+    } }, { label: 'إلغاء' }]
+  });
+  setTimeout(() => { const i = $('#ne-exam'); if (i) { i.focus(); i.select(); } }, 50);
+}
+function deleteExam() {
+  const g = G(), list = examsOf(g.cls), cur = curExam(g.cls);
+  if (list.length < 2) return;
+  const n = S.groups.filter(x => x.cls === g.cls).reduce((s, x) => s + Object.keys(RES(x, cur.id)).length + EXT(x, cur.id).length, 0);
+  modal({
+    title: `حذف «${cur.name}»؟`, body: `<p>يُحذف الامتحان ومفتاحه${n ? ` و<b class="num">${n}</b> درجة` : ''} من كل شعب ${esc(g.cls)}.</p>`,
+    actions: [{ label: 'حذف الامتحان', kind: 'danger solid', onClick: () => {
+      S.exams[g.cls] = list.filter(e => e.id !== cur.id);
+      S.groups.filter(x => x.cls === g.cls).forEach(x => { if (x.byExam) delete x.byExam[cur.id]; });
+      S.activeExam[g.cls] = S.exams[g.cls][0].id; save(); V = newV(); render();
+    } }, { label: 'إلغاء' }]
+  });
+}
+
+/* ---------- ١: الإعداد ---------- */
+function renderClasses() {
+  const el = $('#classes-card');
+  if (!S.groups.length) {
+    el.innerHTML = `<div><h2>الصفوف والشعب</h2><p class="muted small">ارفع ملف Excel لكل شعبة. إن كان في الملف ورقة لكل شعبة أو عمود للشعبة، يُقسَّم تلقائياً. تُكتب الدرجة النهائية لكل طالب في الخلية المقابلة لاسمه.</p></div>
+      <div class="row"><button class="btn primary big" data-act="pick" data-target="in-roster">رفع ملف أسماء (Excel)</button><button class="btn" data-act="add-empty">شعبة بدون ملف</button></div>`;
+    return;
+  }
+  el.innerHTML = `<div class="card-head"><div><h2>الصفوف والشعب</h2><p class="muted small">اختر الشعبة التي تصحّحها الآن.</p></div>
+      <div class="row"><button class="btn primary" data-act="pick" data-target="in-roster">إضافة صف أو شعبة (Excel)</button><button class="btn sm" data-act="add-empty">شعبة بدون ملف</button></div></div>
+    <div class="classes">${classes().map(c => {
+      const gs = S.groups.filter(g => g.cls === c);
+      return `<div class="cls"><div class="cls-head"><h3>${esc(c)}</h3><span class="small muted">${gs.length} ${gs.length === 1 ? 'شعبة' : 'شعب'} · مفتاح مشترك</span></div>
+        <div class="secs">${gs.map(g => {
+          const n = students(g).length, done = Object.keys(RES(g)).length + EXT(g).length;
+          return `<button class="sec" data-act="set-active" data-id="${g.id}" aria-pressed="${g.id === S.active}"><b>شعبة ${esc(g.sec)}</b><span class="small muted">${g.fid ? `<span class="num">${done}</span> من <span class="num">${n}</span>` : `<span class="num">${done}</span> درجة · بدون ملف`}</span></button>`;
+        }).join('')}</div></div>`;
+    }).join('')}</div>`;
+}
+function renderGroup() {
+  const el = $('#group-card'), g = G();
+  if (!g) { el.hidden = true; return; }
+  el.hidden = false;
+  const head = `<div class="card-head"><div><h2>${esc(gLabel(g))}</h2><p class="muted small">${g.fid ? `${esc(S.files[g.fid]?.name || '')} · ورقة «${esc(g.sheet)}»${g.secCol >= 0 ? ` · عمود الشعبة = ${esc(g.secVal)}` : ''} · <span class="num">${students(g).length}</span> طالباً` : 'بدون ملف أسماء'}</p></div>
+    <div class="row"><button class="btn sm" data-act="rename" data-id="${g.id}">تعديل الاسم</button><button class="btn sm danger" data-act="del-group" data-id="${g.id}">حذف الشعبة</button></div></div>`;
+  if (!g.fid) { el.innerHTML = head; return; }
+  const d = sheetData(g.fid, g.sheet);
+  if (!d) { el.innerHTML = head + '<div class="notice bad">تعذّر فتح ورقة هذه الشعبة.</div>'; return; }
+  const width = Math.max(1, ...d.aoa.slice(0, 40).map(r => r.length));
+  const header = g.headerRow >= 0 ? d.aoa[g.headerRow] : null;
+  const colLabel = c => `${XLSX.utils.encode_col(d.c0 + c)} — ${esc(header ? (header[c] || 'بلا عنوان') : 'عمود ' + (c + 1))}`;
+  const dup = dupGroups(g);
+  el.innerHTML = head + `
+    <div class="grid2">
+      <label class="field">صف العناوين<select id="g-head"><option value="-1" ${g.headerRow < 0 ? 'selected' : ''}>لا يوجد صف عناوين</option>${d.aoa.slice(0, 12).map((r, i) => `<option value="${i}" ${i === g.headerRow ? 'selected' : ''}>الصف ${d.r0 + i + 1}: ${esc(r.filter(Boolean).join('، ').slice(0, 40))}</option>`).join('')}</select></label>
+      <label class="field">عمود الأسماء<select id="g-name">${Array.from({ length: width }, (_, c) => `<option value="${c}" ${c === g.nameCol ? 'selected' : ''}>${colLabel(c)}</option>`).join('')}</select></label>
+      <label class="field">عمود الدرجة (تُكتب فيه النتيجة النهائية)<select id="g-score"><option value="-1" ${g.scoreCol < 0 ? 'selected' : ''}>عمود جديد بعد آخر عمود (${XLSX.utils.encode_col(d.c0 + width)})</option>${Array.from({ length: width }, (_, c) => c === g.nameCol ? '' : `<option value="${c}" ${c === g.scoreCol ? 'selected' : ''}>${colLabel(c)}</option>`).join('')}</select></label>
+    </div>
+    ${dup.length ? `<div class="notice warn"><b>أسماء مكررة في هذه الشعبة:</b> ${dup.map(x => esc(x[0].name) + ' (الصفوف ' + x.map(s => rowNo(s.row, g)).join('، ') + ')').join(' · ')}. عند قراءتها يتوقف التصحيح وينبّهك.</div>` : ''}`;
+}
+function renderKey() {
+  const el = $('#key-card'), g = G();
+  if (!g) { el.hidden = true; return; }
+  el.hidden = false;
+  const k = K(), n = k.n, missing = k.answers.filter(a => a == null).length;
+  el.innerHTML = `
+    <div class="card-head"><div><h2>مفتاح الإجابات</h2><p class="muted small">${esc(curExam(g.cls).name)} · ${esc(g.cls)} · مشترك بين كل شعب الصف</p></div>
+      <div class="total"><span class="muted">المجموع الكلي</span><span class="big" id="key-total">${fmt(maxScore())}</span></div></div>
+    <div class="seg-row"><span class="small muted">تسمية الخيارات</span>
+      <div class="seg" role="radiogroup" aria-label="تسمية الخيارات">
+        <button data-act="set-choice" data-v="letters" role="radio" aria-checked="${!numMode()}" aria-pressed="${!numMode()}">أحرف <span class="mono">A B C D</span></button>
+        <button data-act="set-choice" data-v="numbers" role="radio" aria-checked="${numMode()}" aria-pressed="${numMode()}">أرقام <span class="mono">1 2 3 4</span></button>
+      </div><span class="small muted">${numMode() ? 'تُقرأ بالصوت: «1 2 3 4».' : 'تُقرأ بالصوت: «اي بي سي دي».'}</span></div>
+    <div class="grid2">
+      <label class="field">عدد الأسئلة<div class="row" style="flex-wrap:nowrap"><button class="btn sm" data-act="n-dec" aria-label="إنقاص">−</button><input type="number" id="key-n" min="1" max="100" value="${n}"><button class="btn sm" data-act="n-inc" aria-label="زيادة">+</button></div></label>
+      <label class="field">درجة موحّدة لكل سؤال<div class="row" style="flex-wrap:nowrap"><input type="number" id="key-uni" min="0" step="0.25" value="${esc(k.points[0] ?? 1)}"><button class="btn sm" data-act="uni-apply">تطبيق على الكل</button></div></label>
+    </div>
+    <div class="notice ${missing ? 'warn' : 'ok'}">${missing ? `ينقص تحديد الإجابة الصحيحة لـ ${missing} ${missing === 1 ? 'سؤال' : 'أسئلة'}.` : 'المفتاح مكتمل.'}</div>
+    <div class="keygrid">${k.answers.map((a, q) => `
+      <div class="krow ${a == null ? 'missing' : ''}"><span class="qn">س${q + 1}</span>
+        <div class="bubs" role="radiogroup" aria-label="الإجابة الصحيحة للسؤال ${q + 1}">${optLabels().map((o, i) => `<button class="bub" role="radio" aria-checked="${a === i}" aria-pressed="${a === i}" data-act="key-set" data-q="${q}" data-o="${i}">${o}</button>`).join('')}</div>
+        <label class="pts">درجة<input type="number" class="ptsin" id="pts-${q}" data-q="${q}" min="0" step="0.25" value="${esc(k.points[q])}"></label></div>`).join('')}</div>
+    <div class="row"><button class="btn primary big" data-act="go" data-step="voice">${MIC}ابدأ تصحيح ${esc(gLabel(g))}</button></div>`;
+}
+function renderVoiceSettings() {
+  const st = S.settings;
+  const langs = [['ar-IQ', 'العربية (العراق)'], ['ckb-IQ', 'الكردية (سوراني)'], ['fa-IR', 'الفارسية (تلتقط پ چ ژ گ)'], ['ar-SA', 'العربية (السعودية)'], ['en-US', 'الإنجليزية']];
+  $('#voice-settings').innerHTML = `<summary>إعدادات الصوت</summary>
+    <div class="grid2">
+      <label class="field">لغة التعرّف على الأسماء<select id="s-namelang">${langs.map(([v, l]) => `<option value="${v}" ${st.nameLang === v ? 'selected' : ''}>${l}</option>`).join('')}</select>
+        <span class="small">المطابقة مع ملف الأسماء تراعي الحروف ژ چ پ ڤ گ ێ ڵ ۆ ڕ في كل الأحوال.</span></label>
+      <label class="field">طريقة قراءة الإجابات<select id="s-choice"><option value="numbers" ${numMode() ? 'selected' : ''}>أرقام: 1 = A، 2 = B، 3 = C، 4 = D</option><option value="letters" ${!numMode() ? 'selected' : ''}>حروف: اي، بي، سي، دي</option></select>
+        <span class="small">${numMode() ? 'لتحديد سؤال بعينه قل «سؤال» ثم رقمه، مثل: «سؤال خمسة 3».' : 'لتحديد سؤال بعينه قل رقمه قبل الحرف، مثل: «ثلاثة سي».'}</span></label>
+      <label class="field">لغة نطق الإجابات<select id="s-anslang">${[['ar-IQ', 'العربية'], ['ckb-IQ', 'الكردية'], ['en-US', 'الإنجليزية']].map(([v, l]) => `<option value="${v}" ${st.ansLang === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+    </div>
+    <p class="small muted">الأسرع والأدق: لغة واحدة للأسماء والإجابات، فيبقى الميكروفون يعمل دون انقطاع. لا تعرف أيها أنسب؟ استخدم «اختبار أفضل لغة لصوتي» في شاشة التصحيح.</p>
+    <label class="check"><input type="checkbox" id="s-speak" ${st.speak ? 'checked' : ''}> قراءة الدرجة والتنبيهات بصوت</label>
+    <label class="check"><input type="checkbox" id="s-auto" ${st.autoSave ? 'checked' : ''}> حفظ تلقائي عندما يكون الاسم مؤكداً والإجابات كاملة</label>
+    <p class="small muted">يحوّل المتصفح الكلام إلى نص عبر خدمته (في Chrome تُرسل الأصوات إلى Google لهذا الغرض). الأسماء والدرجات تبقى على هذا الجهاز فقط.</p>`;
+}
+
+function renderOffline() {
+  const el = $('#offline-card'); if (!el) return;
+  const st = S.settings, langs = [...new Set([st.nameLang, st.ansLang, 'en-US'])];
+  const role = l => [l === st.nameLang ? 'الأسماء' : '', l === st.ansLang ? 'الحروف' : ''].filter(Boolean).join(' و') || 'بديل للحروف';
+  el.innerHTML = `<div><h2>العمل دون إنترنت</h2>
+      <p class="muted small">التطبيق نفسه وملفات Excel تعمل دون إنترنت. أما تحويل الكلام إلى نص فيحتاج حزمة لغة داخل الجهاز؛ تُنزَّل مرة واحدة وأنت متصل، ثم يعمل الميكروفون دون إنترنت (في Chrome الحديث وعلى الأجهزة التي تدعم ذلك).</p></div>
+    ${HAS_LOCAL_API ? `<div class="tablewrap"><table style="min-width:0"><thead><tr><th>اللغة</th><th>تُستخدم لـ</th><th>الحالة</th><th></th></tr></thead><tbody>
+      ${langs.map(l => `<tr><td>${esc(LANG_NAME[l] || l)}</td><td class="small">${role(l)}</td><td><span class="tag ${LOCAL[l] === 'available' ? 'ok' : LOCAL[l] === 'downloadable' || LOCAL[l] === 'downloading' ? 'warn' : 'bad'}">${esc(LOCAL_TXT[LOCAL[l]] || '…')}</span></td>
+        <td>${LOCAL[l] === 'downloadable' ? `<button class="btn sm primary" data-act="local-install" data-lang="${l}">تنزيل</button>` : ''}</td></tr>`).join('')}
+    </tbody></table></div>` : `<div class="notice warn">هذا المتصفح لا يدعم التعرّف على الكلام دون إنترنت. استخدم أحدث إصدار من Chrome.</div>`}
+    <div class="notice info"><b>إن لم تتوفر لغتك دون إنترنت:</b>
+      <ul><li>اختر «تحديد الطالب: بترتيب القائمة» في شاشة التصحيح؛ يعرض التطبيق الطالب التالي تلقائياً، فتقرأ الإجابات فقط. رتّب الأوراق بترتيب أسماء الملف.</li>
+      <li>اقرأ الإجابات بالإنجليزية (one, two, three, four) إن كانت حزمة الإنجليزية متاحة.</li>
+      <li>أو اكتب في حقل الإجابات بميكروفون لوحة مفاتيح الهاتف إن كانت تدعم الكتابة الصوتية دون إنترنت.</li></ul></div>`;
+}
+
+/* ---------- فهم الكلام: الحروف والأرقام والأوامر ---------- */
+const WORDS = (() => {
+  const L = {}, addL = (o, ws) => ws.forEach(w => { L[loose(w)] = o; });
+  addL(0, ['a', 'ay', 'aye', 'ai', 'ei', 'eh', 'ey', 'اي', 'ايه', 'اية', 'ايي', 'اى', 'أ', 'ا', 'الف', 'إي', 'إيه', 'ئەی', 'ئەیی', 'ئێ', 'ئي', 'ئيه']);
+  addL(1, ['b', 'be', 'bee', 'bi', 'بي', 'ب', 'باء', 'بيه', 'بيي', 'بى', 'بێ', 'پی']);
+  addL(2, ['c', 'see', 'sea', 'si', 'ce', 'سي', 'سيه', 'سيي', 'سى', 'ج', 'جيم', 'ثي', 'سێ ي']);
+  addL(3, ['d', 'de', 'dee', 'di', 'دي', 'د', 'دال', 'ديه', 'ديي', 'دى', 'ذي', 'دێ']);
+  const KN = {};   // أرقام كردية تُفحص قبل التبسيط (سێ = 3 تختلف عن سي = C)
+  [['یەک', 'ئێک', 'یەکەم', 'یک'], ['دوو', 'دو', 'دووەم'], ['سێ', 'سێیەم', 'سه'], ['چوار', 'چار', 'چهار'], ['پێنج'], ['شەش'], ['حەوت', 'حەفت'], ['هەشت'], ['نۆ', 'نەه'], ['دە', 'دەه']]
+    .forEach((ws, i) => ws.forEach(w => { KN[basic(w)] = i + 1; }));
+  const N = {};
+  [['صفر', 'zero', 'سفر'], ['واحد', 'وحده', 'اول', 'الاول', 'one', 'won'], ['اثنين', 'اثنان', 'ثنين', 'تنين', 'اتنين', 'ثاني', 'الثاني', 'two', 'to', 'too', 'tu'], ['ثلاثه', 'ثلاث', 'تلاته', 'تلاتة', 'ثالث', 'الثالث', 'three', 'tree'],
+   ['اربعه', 'اربع', 'رابع', 'الرابع', 'four', 'for', 'fore'], ['خمسه', 'خمس', 'خامس', 'الخامس', 'five'], ['سته', 'ست', 'سادس', 'السادس', 'six'],
+   ['سبعه', 'سبع', 'سابع', 'السابع', 'seven'], ['ثمانيه', 'ثماني', 'ثمان', 'ثامن', 'الثامن', 'eight'], ['تسعه', 'تسع', 'تاسع', 'التاسع', 'nine'],
+   ['عشره', 'عشر', 'عاشر', 'العاشر', 'ten'], ['احدعش', 'احدعشر', 'eleven'], ['اثنعش', 'اثناعشر', 'twelve'], ['ثلطعش', 'ثلاثطعش', 'ثلاثهعشر'], ['اربعطعش', 'اربعهعشر'], ['خمسطعش', 'خمسهعشر', 'fifteen'],
+   ['ستطعش', 'ستهعشر'], ['سبعطعش', 'سبعهعشر'], ['ثمنطعش', 'ثمانيهعشر'], ['تسعطعش', 'تسعهعشر'], ['عشرين', 'عشرون', 'twenty']]
+    .forEach((ws, i) => ws.forEach(w => { N[loose(w)] = i; }));
+  const B = new Set(['فارغ', 'فارغه', 'فراغ', 'فاضي', 'فاضيه', 'بدون', 'متروك', 'ماكو', 'لاشي', 'بەتاڵ', 'ڤالا', 'ڤالە', 'هیچ', 'blank', 'empty', 'none', 'skip'].map(loose));
+  const F = new Set(['سؤال', 'السؤال', 'الجواب', 'جواب', 'الاجابه', 'اجابه', 'رقم', 'و', 'ثم', 'بعدين', 'التالي', 'پرسیار', 'وەڵام', 'ژمارە', 'question', 'answer', 'number', 'then', 'next', 'and'].map(loose));
+  const SAVE = new Set(['احفظ', 'حفظ', 'سجل', 'save', 'پاشەکەوت', 'پاشەکەوتکە', 'تۆمارکە', 'تومار'].map(loose));
+  const HALF = new Set(['نص', 'ونص', 'نصف', 'ونصف', 'نیو', 'ونیو', 'half'].map(loose));
+  const CLEAR = new Set(['امسح', 'مسح', 'اعد', 'اعاده', 'سڕینەوە', 'پاککردنەوە', 'clear', 'reset'].map(loose));
+  const QW = new Set(['سؤال', 'السؤال', 'سوال', 'question', 'پرسیار', 'پرسیاری'].map(loose));
+  const NEXT = new Set(['تخطي', 'تخطى', 'تجاوز', 'التالي', 'بعده', 'دواتر', 'skip', 'next'].map(loose));
+  const PREV = new Set(['السابق', 'رجوع', 'ارجع', 'پێشوو', 'back', 'previous'].map(loose));
+  const SPELL = Object.keys(L).filter(s => !s.includes(' ')).sort((a, b) => b.length - a.length);
+  return { L, KN, N, B, F, QW, SAVE, HALF, CLEAR, NEXT, PREV, SPELL };
+})();
+// كلمة ملتصقة مثل «ايبيسيدي» أو «ابي» تُفكّك إلى حروف إن أمكن تفكيكها كاملة
+function segmentLetters(w) {
+  const n = w.length, best = Array(n + 1).fill(null); best[0] = [];
+  for (let i = 0; i < n; i++) {
+    if (!best[i]) continue;
+    for (const s of WORDS.SPELL) if (w.startsWith(s, i)) { const c = [...best[i], WORDS.L[s]]; if (!best[i + s.length] || best[i + s.length].length > c.length) best[i + s.length] = c; }
+  }
+  return best[n] && best[n].length >= 2 ? best[n] : null;
+}
+function isAnswerToken(raw) {
+  const b = basic(raw), w = loose(raw);
+  return /^\d+$/.test(b) || !!WORDS.KN[b] || w in WORDS.L || (WORDS.N[w] > 0) || WORDS.B.has(w) || !!segmentLetters(w);
+}
+function parseAnswers(text, n) {
+  const { L, KN, N, B, F } = WORDS;
+  const toks = basic(String(text || '').replace(/(\d+)/g, ' $1 ')).split(' ').filter(Boolean);
+  const out = Array(n).fill(null), unknown = [];
+  let p = 0, extra = 0, letters = 0;
+  const put = v => { if (p < n) out[p] = v; else extra++; p++; letters++; };
+  const jump = k => { if (k >= 1 && k <= n) p = k - 1; };
+  const num = numMode();
+  const numOf = t => /^\d+$/.test(t) ? +t : (KN[t] || (N[loose(t)] > 0 ? N[loose(t)] : 0));
+  // وضع الأرقام: 1=A، 2=B، 3=C، 4=D؛ وعبارة «سؤال 5» تنقل إلى السؤال الخامس
+  const choice = k => { if (k >= 1 && k <= 4) { put(k - 1); return true; } return false; };
+  for (let ti = 0; ti < toks.length; ti++) {
+    const raw = toks[ti];
+    if (num && WORDS.QW.has(loose(raw))) { const k = toks[ti + 1] ? numOf(toks[ti + 1]) : 0; if (k) { jump(k); ti++; } continue; }
+    if (/^\d+$/.test(raw)) {
+      if (!num) { jump(+raw); continue; }
+      if (/^[1-4]+$/.test(raw)) { for (const ch of raw) put(+ch - 1); } else unknown.push(raw);   // «1234» تُفكّك إلى أربع إجابات
+      continue;
+    }
+    if (KN[raw]) { if (!num) jump(KN[raw]); else if (!choice(KN[raw])) unknown.push(raw); continue; }
+    const w = loose(raw);
+    if (w in L) { put(L[w]); continue; }
+    if (N[w] > 0) { if (!num) jump(N[w]); else if (!choice(N[w])) unknown.push(raw); continue; }
+    if (B.has(w)) { put(-1); continue; }
+    if (F.has(w) || !w) continue;
+    if (w.length > 1 && w[0] === 'و') {
+      const r = w.slice(1);
+      if (r in L) { put(L[r]); continue; } if (B.has(r)) { put(-1); continue; }
+      if (num && N[r] > 0 && choice(N[r])) continue;
+    }
+    if (/^[abcd]+$/.test(w)) { for (const ch of w) put('abcd'.indexOf(ch)); continue; }
+    const seg = segmentLetters(w); if (seg) { seg.forEach(put); continue; }
+    unknown.push(raw);
+  }
+  return { answers: out, unknown, extra, letters };
+}
+function parseScore(text) {
+  const t = basic(String(text || '').replace(/[٫,]/g, '.'));
+  const m = t.match(/\d+(\.\d+)?/);
+  let v = m ? parseFloat(m[0]) : null;
+  if (v == null) for (const raw of t.split(' ')) { if (WORDS.KN[raw]) { v = WORDS.KN[raw]; break; } const w = loose(raw); if (WORDS.N[w] != null) { v = WORDS.N[w]; break; } }
+  if (v != null && t.split(' ').some(w => WORDS.HALF.has(loose(w)))) v += 0.5;
+  return v;
+}
+// «ژیار ئازاد اي بي سي» ← الاسم + الإجابات الملحقة به
+function splitNameAnswers(text) {
+  const w = String(text || '').trim().split(/\s+/).filter(Boolean);
+  let k = w.length;
+  while (k > 1 && isAnswerToken(w[k - 1])) k--;
+  return { name: w.slice(0, k).join(' '), rest: w.slice(k).join(' ') };
+}
+
+/* ---------- تنبيهات صوتية ---------- */
+let AC = null, echo = { text: '', until: 0 };
+function tone(freq, dur, vol = 0.12) {
+  try {
+    AC ||= new (window.AudioContext || window.webkitAudioContext)();
+    const o = AC.createOscillator(), g = AC.createGain();
+    o.frequency.value = freq; g.gain.value = vol; o.connect(g).connect(AC.destination);
+    o.start(); o.stop(AC.currentTime + dur);
+  } catch (e) {}
+}
+const tick = () => tone(990, 0.06, 0.08);
+const okTone = () => { tone(784, 0.08); setTimeout(() => tone(1175, 0.1), 90); };
+const alarm = () => { tone(330, 0.18, 0.18); setTimeout(() => tone(260, 0.25, 0.18), 200); try { navigator.vibrate && navigator.vibrate([200, 100, 200]); } catch (e) {} };
+function speak(text) {
+  try {
+    if (!S.settings.speak || !window.speechSynthesis) return;
+    const u = new SpeechSynthesisUtterance(text); u.lang = 'ar'; u.rate = 1.15;
+    const v = speechSynthesis.getVoices().find(x => /^ar/i.test(x.lang)); if (v) u.voice = v;
+    echo = { text: loose(text), until: Date.now() + 1500 + text.length * 90 };
+    u.onend = u.onerror = () => { echo.until = Date.now() + 700; };
+    speechSynthesis.cancel(); speechSynthesis.speak(u);
+  } catch (e) {}
+}
+// هل هذا النص صدى لما قاله التطبيق للتو؟ (يُستبعد وحده، ويبقى كلام المعلم مسموعاً)
+function isEcho(t) {
+  if (!echo.text || Date.now() > echo.until) return false;
+  const a = loose(t).replace(/ /g, ''), b = echo.text.replace(/ /g, '');
+  if (!a) return false;
+  if (b.includes(a) && a.length >= 2) return true;
+  return 1 - phonDist(a, b) / Math.max(a.length, b.length) >= 0.6;
+}
+
+/* ---------- التصحيح الصوتي ---------- */
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+const IS_FILE = location.protocol === 'file:';
+
+/* ---------- العمل دون إنترنت: التعرّف على الكلام داخل الجهاز (Chrome الحديث) ---------- */
+const LOCAL = {};   // lang -> available | downloadable | downloading | unavailable | unsupported
+const HAS_LOCAL_API = !!(SR && typeof SR.available === 'function');
+async function refreshLocal() {
+  const langs = [...new Set([S.settings.nameLang, S.settings.ansLang, 'en-US'])];
+  for (const lang of langs) {
+    if (!HAS_LOCAL_API) { LOCAL[lang] = 'unsupported'; continue; }
+    try { LOCAL[lang] = await SR.available({ langs: [lang], processLocally: true }); } catch (e) { LOCAL[lang] = 'unavailable'; }
+  }
+  if (step === 'voice') keepFocus(renderVoice); else if (step === 'setup') renderOffline();
+}
+async function installLocal(lang) {
+  if (!HAS_LOCAL_API || typeof SR.install !== 'function') return;
+  if (!navigator.onLine) { toast('تنزيل حزمة اللغة يحتاج إلى إنترنت مرة واحدة فقط'); return; }
+  LOCAL[lang] = 'downloading'; render();
+  try { const ok = await SR.install({ langs: [lang], processLocally: true }); toast(ok ? 'نُزّلت حزمة اللغة؛ يعمل التعرّف الآن دون إنترنت' : 'تعذّر تنزيل حزمة اللغة لهذا الجهاز'); }
+  catch (e) { toast('تعذّر تنزيل حزمة اللغة لهذا الجهاز'); }
+  refreshLocal();
+}
+const isLocal = lang => LOCAL[lang] === 'available';
+// يجعل الجلسة تعمل داخل الجهاز إن كانت الحزمة منزّلة، ويرجّح أسماء الشعبة والحروف لدقة أعلى
+function applyLocal(r) {
+  const local = isLocal(r.lang);
+  if ('processLocally' in r) r.processLocally = local;
+  if (local && 'phrases' in r && window.SpeechRecognitionPhrase) {
+    try {
+      const ph = (numMode() ? ['1', '2', '3', '4', 'واحد', 'اثنين', 'ثلاثة', 'أربعة'] : ['A', 'B', 'C', 'D', 'اي', 'بي', 'سي', 'دي']).concat(['احفظ', 'فارغ', 'التالي']).map(w => new SpeechRecognitionPhrase(w, 6));
+      students().slice(0, 300).forEach(s => ph.push(new SpeechRecognitionPhrase(s.name, 4)));
+      r.phrases = ph;
+    } catch (e) {}
+  }
+}
+const LOCAL_TXT = { available: 'يعمل دون إنترنت', downloadable: 'يمكن تنزيله للعمل دون إنترنت', downloading: 'جارٍ التنزيل…', unavailable: 'غير متاح دون إنترنت على هذا الجهاز', unsupported: 'المتصفح لا يدعم التعرّف دون إنترنت' };
+const LANG_NAME = { 'ar-IQ': 'العربية (العراق)', 'ar-SA': 'العربية (السعودية)', 'ckb-IQ': 'الكردية (سوراني)', 'fa-IR': 'الفارسية', 'en-US': 'الإنجليزية' };
+function offlineNeeds() {
+  const order = S.settings.nameMode === 'order';
+  const need = order ? [S.settings.ansLang] : [...new Set([S.settings.nameLang, S.settings.ansLang])];
+  return { need, ok: need.every(isLocal) };
+}
+
+/* ---------- تحديد الطالب بترتيب القائمة (لا يحتاج التعرّف على الأسماء) ---------- */
+function nextUngraded(g, fromRow, dir = 1) {
+  const sts = students(g); if (!sts.length) return null;
+  let i = fromRow == null ? (dir > 0 ? -1 : sts.length) : sts.findIndex(s => s.row === fromRow);
+  for (let j = i + dir; j >= 0 && j < sts.length; j += dir) if (!RES(g)[sts[j].row]) return sts[j].row;
+  return null;
+}
+function autoPick(dir = 1, from) {
+  const g = G(); if (!g || !g.fid) return;
+  const start = from !== undefined ? from : (g.cursor ?? null);
+  let row = nextUngraded(g, start, dir);
+  if (row == null && dir > 0) row = nextUngraded(g, null, 1);
+  if (row == null) { V.allDone = dir > 0; return; }
+  Object.assign(V, { row, sure: true, picked: false, byOrder: true, allDone: false, block: null, elsewhere: null, heard: '' });
+  g.cursor = row;
+  if (session.on) speak(studentName(row));
+}
+function ensurePick() {
+  if (S.settings.nameMode !== 'order' || V.row != null || V.block || V.noAuto || V.allDone) return;
+  const g = G(); if (!g || !g.fid) return;
+  autoPick(1);
+  if (V.row != null && V.phase === 'name') V.phase = S.settings.mode === 'score' ? 'score' : S.settings.mode === 'camera' ? 'camera' : 'answers';
+}
+const FATAL = new Set(['not-allowed', 'service-not-allowed', 'audio-capture', 'language-not-supported', 'network']);
+const newV = () => ({ phase: 'name', heard: '', cands: [], row: null, sure: false, picked: false, regrade: false, block: null, elsewhere: null, text: '', manual: {}, scoreText: '', interim: '', err: null, saved: null, search: '' });
+let V = newV(), micPerm = null;
+const session = { on: false, rec: null, lang: null, quickEnds: 0, startedAt: 0, prefix: new Map(), stableKey: '', stableT: 0 };
+
+function rankNames(alts, g = G()) {
+  return students(g).map(s => ({ ...s, sim: Math.max(...alts.map(a => nameSim(a, s.name))) })).sort((a, b) => b.sim - a.sim);
+}
+function bestElsewhere(alts, g) {
+  let best = null;
+  for (const o of S.groups) {
+    if (o === g || o.cls !== g.cls || !o.fid) continue;
+    const [a, b] = rankNames(alts, o);
+    if (a && a.sim >= 0.85 && (!b || a.sim - b.sim >= 0.08) && (!best || a.sim > best.sim)) best = { gid: o.id, sec: o.sec, row: a.row, name: a.name, sim: a.sim };
+  }
+  return best;
+}
+function blockGraded(row, name, score) {
+  V.block = { kind: 'graded', row, name, score }; V.row = null; V.sure = false;
+  alarm(); speak(`انتبه، ${name} مصحَّح مسبقاً`);
+}
+function selectRow(row, how) {
+  const g = G();
+  if (RES(g)[row] && !V.regrade) { blockGraded(row, studentName(row), RES(g)[row].score); return false; }
+  V.row = row; V.block = null; V.elsewhere = null;
+  if (how === 'pick') V.picked = true; else V.sure = true;
+  return true;
+}
+// يحدّد الطالب من الكلام؛ يوقف التصحيح وينبّه عند تكرار الاسم أو إذا كان مصحَّحاً
+function applyHeardName(alts) {
+  alts = alts.map(a => a.trim().replace(/[.,،؟!]+$/, '')).filter(Boolean);
+  if (!alts.length) return;
+  Object.assign(V, { heard: alts[0], picked: false, regrade: false, block: null, elsewhere: null, row: null, sure: false, cands: [] });
+  const g = G();
+  if (!g) return;
+  if (!g.fid) {
+    const n = nameKey(alts[0]), prev = EXT(g).find(x => nameKey(x.name) === n);
+    if (prev) { V.block = { kind: 'graded-extra', name: prev.name, score: prev.score }; alarm(); speak(`انتبه، ${prev.name} مصحَّح مسبقاً`); return; }
+    V.row = 'extra'; V.sure = true; return;
+  }
+  const ranked = rankNames(alts, g);
+  V.cands = ranked.slice(0, 5).filter(c => c.sim >= 0.35);
+  const [a, b] = ranked;
+  if (a && a.sim >= 0.78) {
+    const same = ranked.filter(c => nameKey(c.name) === nameKey(a.name));
+    if (same.length > 1) {
+      V.block = { kind: 'dup', name: a.name, rows: same.map(c => c.row) };
+      alarm(); speak(`انتبه، الاسم ${a.name} مكرر في القائمة`); return;
+    }
+    if (!b || a.sim - b.sim >= 0.08) { selectRow(a.row, 'voice'); return; }
+  }
+  V.elsewhere = bestElsewhere(alts, g);
+  if (V.elsewhere) { alarm(); speak(`هذا الطالب في شعبة ${V.elsewhere.sec}`); }
+}
+function finalAnswers() {
+  if (S.settings.mode === 'camera') {
+    const lk = V.cam && V.cam.locked;
+    const answers = Array.from({ length: keyN() }, (_, q) => q in V.manual ? V.manual[q] : (lk && lk.dec[q] && lk.dec[q].st === 'ok' ? lk.dec[q].ans : null));
+    return { answers, unknown: [], extra: 0, letters: 0, complete: answers.every(v => v != null) };
+  }
+  const p = parseAnswers(V.text, keyN());
+  const answers = p.answers.map((v, q) => (q in V.manual ? V.manual[q] : v));
+  return { ...p, answers, complete: answers.every(v => v != null) };
+}
+function currentScore() {
+  if (S.settings.mode === 'score') return parseScore(V.scoreText);
+  return keyComplete() ? scoreAnswers(finalAnswers().answers) : null;
+}
+function issues() {
+  const out = [];
+  if (!G()) { out.push('اختر الصف والشعبة أولاً.'); return out; }
+  if (V.row == null) out.push(V.block ? 'لن يُصحَّح هذا الاسم — راجع التنبيه أعلاه.' : V.heard ? 'اختر الطالب الصحيح من الأسماء المقترحة أو ابحث عنه.' : 'قل اسم الطالب أو اكتبه.');
+  if (S.settings.mode === 'camera') {
+    if (!keyComplete()) out.push(`مفتاح إجابات ${G().cls} غير مكتمل — أكمله من «الإعداد».`);
+    const lk = V.cam && V.cam.locked;
+    if (V.row != null && !lk) out.push('انتظر حتى تُثبَّت قراءة الورقة.');
+    if (lk) {
+      const fl = lk.dec.map((d, q) => d.st !== 'ok' && !(q in V.manual) ? q : -1).filter(q => q >= 0);
+      if (fl.length) out.push('راجع: ' + fl.map(q => `س${q + 1} (${CAM_ST[lk.dec[q].st]})`).join('، ') + ' — اختر الإجابة أو «بلا».');
+      const rest = []; for (let q = lk.dec.length; q < keyN(); q++) if (!(q in V.manual)) rest.push(q + 1);
+      if (rest.length) out.push(`الأسئلة ${rest.join('، ')} خارج ورقة الكاميرا (حدّها ${CAM_CAP})؛ أدخلها بالصوت أو اللمس.`);
+    }
+  } else if (S.settings.mode === 'answers') {
+    if (!keyComplete()) out.push(`مفتاح إجابات ${G().cls} غير مكتمل — أكمله من «الإعداد».`);
+    const miss = finalAnswers().answers.map((v, q) => v == null ? q + 1 : 0).filter(Boolean);
+    if (miss.length) out.push(`لم تُسجَّل إجابة: ${miss.map(q => 'س' + q).join('، ')}. اقرأها أو اختر «بلا إجابة».`);
+  } else {
+    const s = parseScore(V.scoreText);
+    if (s == null) out.push('قل الدرجة أو اكتبها.');
+    else if (maxScore() > 0 && s > maxScore()) out.push(`الدرجة ${fmt(s)} أكبر من المجموع الكلي ${fmt(maxScore())}.`);
+  }
+  return out;
+}
+const phaseLang = () => V.phase === 'name' ? S.settings.nameLang : S.settings.ansLang;
+function nextPhase() {
+  ensurePick();
+  if (V.row == null) return 'name';
+  if (S.settings.mode === 'camera') return 'camera';
+  if (S.settings.mode === 'score') return parseScore(V.scoreText) == null ? 'score' : 'confirm';
+  return finalAnswers().complete ? 'confirm' : 'answers';
+}
+function setPhase(p) {
+  V.phase = p;
+  if (session.on && session.rec && phaseLang() !== session.lang) { try { session.rec.stop(); } catch (e) {} }
+  keepFocus(renderVoice);
+  syncCamera();
+}
+async function checkMicPermission() {
+  try { const st = await navigator.permissions.query({ name: 'microphone' }); micPerm = st.state; st.onchange = () => { micPerm = st.state; if (step === 'voice') keepFocus(renderVoice); }; }
+  catch (e) { micPerm = null; }
+}
+/* جلسة استماع واحدة متواصلة: إذن واحد، ثم انتقال تلقائي بين المراحل */
+/* ---------- إذن الميكروفون: يُطلب فقط بعد ضغط زر الميكروفون ---------- */
+const UA = navigator.userAgent;
+const IS_IOS = /iPhone|iPad|iPod/i.test(UA) || (/Macintosh/.test(UA) && navigator.maxTouchPoints > 1);
+const IS_ANDROID = /Android/i.test(UA);
+const IN_APP = /FBAN|FBAV|Instagram|WhatsApp|Telegram|Line\/|Snapchat|MicroMessenger|; wv\)/i.test(UA);
+let micChecked = false, micStarting = false;
+// يطلب الإذن بالواجهة القياسية ثم يغلق المسار فوراً، حتى لا يتعارض مع خدمة التعرّف على الكلام
+async function micProbe() {
+  if (!window.isSecureContext) return 'insecure';
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return 'ok';   // متصفحات قديمة: نترك الطلب للتعرّف على الكلام
+  let stream = null;
+  try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }); return 'ok'; }
+  catch (e) {
+    return ({ NotAllowedError: 'not-allowed', PermissionDeniedError: 'not-allowed', SecurityError: 'not-allowed',
+      NotFoundError: 'audio-capture', DevicesNotFoundError: 'audio-capture', OverconstrainedError: 'audio-capture',
+      NotReadableError: 'busy', TrackStartError: 'busy', AbortError: 'busy' })[e && e.name] || 'mic-error';
+  } finally { if (stream) stream.getTracks().forEach(t => t.stop()); }
+}
+async function startSession() {
+  if (!G()) { toast('اختر الصف والشعبة أولاً'); return; }
+  if (session.on || micStarting) return;
+  if (!SR) { V.err = 'unsupported'; renderVoice(); return; }
+  if (!navigator.onLine && !offlineNeeds().ok) { V.err = 'offline'; renderVoice(); return; }
+  tone(1, 0.01, 0);   // تهيئة الصوت بلمسة المستخدم
+  requestPersist();
+  V.err = null; V.saved = null;
+  if (!micChecked) {
+    micStarting = true; renderVoice();
+    const res = await micProbe();
+    micStarting = false;
+    if (res !== 'ok') { V.err = res; renderVoice(); return; }
+    micChecked = true;
+  }
+  session.on = true; session.quickEnds = 0; session.started = false;
+  V.phase = nextPhase();
+  spin();
+}
+function spin() {
+  if (!session.on) return;
+  let r = session.rec;
+  if (!r) {
+    r = new SR(); session.rec = r;
+    r.continuous = true; r.interimResults = true; r.maxAlternatives = 5;
+    r.onresult = onResult;
+    r.onstart = () => { session.started = true; };
+    r.onerror = e => {
+      if (e.error === 'no-speech' || e.error === 'aborted') return;
+      let code = e.error || 'error';
+      if (code === 'network' && !navigator.onLine) code = 'offline';
+      // في Safari قد يُرفض إعادة التشغيل التلقائي بعد عمل سليم؛ ليس رفضاً للإذن
+      if (code === 'not-allowed' && session.started) code = 'restart';
+      else if (code === 'not-allowed' && !window.isSecureContext) code = 'insecure';
+      if (code === 'not-allowed') micChecked = false;
+      V.err = code;
+      if (FATAL.has(e.error)) endSession();
+    };
+    r.onend = () => {
+      V.interim = '';
+      if (!session.on || session.rec !== r) return;
+      const quick = Date.now() - session.startedAt < 1500;
+      session.quickEnds = quick ? session.quickEnds + 1 : 0;
+      if (session.quickEnds > 4) { V.err = 'restart'; endSession(); return; }
+      setTimeout(spin, quick ? 600 : 60);
+    };
+  }
+  r.lang = phaseLang(); session.lang = r.lang; session.startedAt = Date.now();
+  session.prefix = new Map(); session.stableKey = ''; clearTimeout(session.stableT);   // أرقام النتائج تبدأ من جديد مع كل تشغيل
+  applyLocal(r);
+  try { r.start(); }
+  catch (e) {
+    // InvalidStateError = يعمل مسبقاً؛ غير ذلك يعني أن المتصفح رفض التشغيل
+    if (!e || e.name !== 'InvalidStateError') { V.err = session.started ? 'restart' : 'mic-error'; endSession(); return; }
+  }
+  keepFocus(renderVoice);
+}
+function endSession() {
+  session.on = false;
+  const r = session.rec; session.rec = null;
+  if (r) { r.onend = null; try { r.abort(); } catch (e) {} }
+  V.interim = '';
+  if (step === 'voice') keepFocus(renderVoice);
+}
+/* معالجة النتائج:
+   - النتائج المؤقتة تُعرض فوراً كمعاينة فقط ولا تُعتمد (لأن المتصفح يصحّحها لاحقاً).
+   - تُعتمد النتيجة النهائية، أو نتيجة مؤقتة ثابتة لم تتغير مدة STABLE_MS وتكمل كل الإجابات (توقف المعلم = انتهى).
+   - ما يقوله التطبيق بصوته يُستبعد بالمقارنة مع نص الكلام المنطوق، لا بإيقاف السمع. */
+const STABLE_MS = 650;
+function onResult(e) {
+  let int = '', stableCand = null;
+  for (let i = e.resultIndex; i < e.results.length; i++) {
+    const res = e.results[i];
+    let alts = [...res].map(x => ({ t: x.transcript.trim(), c: x.confidence || 0 })).filter(a => a.t);
+    if (!alts.length) continue;
+    const pre = session.prefix.get(i);       // جزء اعتُمد مبكراً من هذه النتيجة
+    if (pre != null) {
+      if (!alts[0].t.startsWith(pre)) { if (res.isFinal) session.prefix.delete(i); continue; }
+      alts = [{ t: alts[0].t.slice(pre.length).trim(), c: alts[0].c }].filter(a => a.t);
+      if (!alts.length) { if (res.isFinal) session.prefix.delete(i); continue; }
+    }
+    if (isEcho(alts[0].t)) continue;
+    if (res.isFinal) {
+      session.prefix.delete(i); clearTimeout(session.stableT); session.stableKey = '';
+      handleFinal(alts.sort((a, b) => b.c - a.c).map(a => a.t));
+      continue;
+    }
+    int += alts[0].t + ' ';
+    stableCand = { i, t: alts[0].t, full: pre != null ? pre + ' ' + alts[0].t : alts[0].t };
+  }
+  V.interim = int.trim();
+  if (stableCand && (V.phase === 'answers' || V.phase === 'confirm')) watchStable(stableCand);
+  updateLive();
+}
+function watchStable({ i, t, full }) {
+  const key = i + '|' + t;
+  if (session.stableKey === key) return;
+  session.stableKey = key; clearTimeout(session.stableT);
+  session.stableT = setTimeout(() => {
+    if (session.stableKey !== key) return;
+    const words = t.split(/\s+/);
+    if (words.some(w => WORDS.SAVE.has(loose(w)) || WORDS.CLEAR.has(loose(w)))) return;   // الأوامر تنتظر النتيجة النهائية
+    if (V.phase === 'answers') {
+      const cand = (V.text + ' ' + t).trim(), p = parseAnswers(cand, keyN());
+      if (p.unknown.length || !p.answers.every((v, q) => v != null || q in V.manual)) return;
+      session.prefix.set(i, full.trim()); V.text = cand; V.interim = '';
+      setPhase('confirm'); afterComplete();
+    } else if (V.phase === 'confirm' && rereadAnswers([t])) session.prefix.set(i, full.trim());
+  }, STABLE_MS);
+}
+// إعادة قراءة كل الإجابات في مرحلة التأكيد تستبدل السابقة (تصحيح بالصوت دون «امسح»)
+function rereadAnswers(alts) {
+  const best = bestAnswerAlt(alts), p = parseAnswers(best, keyN());
+  if (p.unknown.length || p.letters < keyN()) return false;
+  V.text = best; V.manual = {}; V.interim = '';
+  setPhase('confirm'); afterComplete(); return true;
+}
+// الأفضل: أكثر إجابات مفهومة وأقل كلمات مجهولة؛ عند التعادل الأعلى ثقة (الترتيب يأتي مرتباً بالثقة)
+function bestAnswerAlt(alts) {
+  let best = alts[0], bs = -Infinity;
+  for (const a of alts) { const p = parseAnswers(a, 200); const s = Math.min(p.letters, keyN()) - 2 * p.unknown.length - (p.extra ? 1 : 0); if (s > bs) { bs = s; best = a; } }
+  return best;
+}
+// معاينة خفيفة تُحدَّث مع كل نتيجة مؤقتة دون إعادة بناء الصفحة
+let liveTimer = 0;
+function updateLive() {
+  if (liveTimer) return;
+  liveTimer = setTimeout(() => {
+    liveTimer = 0;
+    const el = $('#live'); if (!el) return;
+    let preview = '';
+    if (V.interim && (V.phase === 'answers' || V.phase === 'confirm')) {
+      const base = V.phase === 'confirm' ? '' : V.text, p = parseAnswers((base + ' ' + V.interim).trim(), keyN());
+      preview = p.answers.map(a => a == null ? '·' : a < 0 ? '–' : optLabels()[a]).join(' ');
+    } else if (V.interim && V.phase === 'name' && G() && G().fid) {
+      const [a] = rankNames([splitNameAnswers(V.interim).name]);
+      if (a && a.sim >= 0.6) preview = 'قد يكون: ' + a.name;
+    }
+    el.innerHTML = V.interim ? `<span>${esc(V.interim)}</span>${preview ? `<div class="live-preview mono">${esc(preview)}</div>` : ''}` : '';
+  }, 40);
+}
+/* ---------- اختبار أفضل لغة: يجرّب كل لغة تعرّف على صوت المعلم نفسه ويختار الأدق ---------- */
+const CAL_LANGS = [['ar-IQ', 'العربية (العراق)'], ['ckb-IQ', 'الكردية (سوراني)'], ['fa-IR', 'الفارسية'], ['en-US', 'الإنجليزية']];
+let CAL = null;
+function calStart() {
+  endSession();
+  const sts = students(), pick = sts.length ? sts[Math.floor(Math.random() * sts.length)].name : '';
+  const langs = CAL_LANGS.filter(([l]) => navigator.onLine || isLocal(l));
+  CAL = { langs, i: 0, target: pick, results: [], listening: false };
+  renderVoice();
+}
+const calPhrase = () => (CAL.target ? CAL.target + '  ' : '') + (numMode() ? '1  2  3  4' : 'اي  بي  سي  دي');
+async function calListen() {
+  if (!SR) { V.err = 'unsupported'; renderVoice(); return; }
+  if (!micChecked) { const res = await micProbe(); if (res !== 'ok') { V.err = res; renderVoice(); return; } micChecked = true; }
+  const [lang] = CAL.langs[CAL.i], r = new SR(), at = CAL.i;
+  CAL.rec = r; r.lang = lang; r.continuous = false; r.interimResults = false; r.maxAlternatives = 5;
+  if ('processLocally' in r) r.processLocally = isLocal(lang);
+  r.onresult = e => { CAL.results[at] = calScore(lang, [...e.results[0]].map(x => x.transcript)); };
+  r.onerror = e => { if (!CAL.results[at]) CAL.results[at] = { lang, err: e.error }; };
+  r.onend = () => { if (!CAL || CAL.i !== at) return; CAL.listening = false; if (!CAL.results[at]) CAL.results[at] = { lang, err: 'no-speech' }; CAL.i++; renderVoice(); };
+  CAL.listening = true; renderVoice();
+  try { r.start(); } catch (e) { CAL.listening = false; CAL.results[at] = { lang, err: 'start' }; CAL.i++; renderVoice(); }
+}
+function calScore(lang, alts) {
+  let best = null;
+  for (const a of alts) {
+    const { name, rest } = splitNameAnswers(a);
+    const ns = CAL.target ? nameSim(name, CAL.target) : 0;
+    const p = parseAnswers(rest || a, 4), ds = [0, 1, 2, 3].filter(q => p.answers[q] === q).length / 4;
+    const total = CAL.target ? 0.6 * ns + 0.4 * ds : ds;
+    if (!best || total > best.total) best = { lang, heard: a, name: ns, digits: ds, total };
+  }
+  return best;
+}
+const CAL_ERR = { 'no-speech': 'لم يُسمع كلام', 'language-not-supported': 'غير مدعومة', network: 'تحتاج إنترنت', 'not-allowed': 'الميكروفون مرفوض', start: 'تعذّر التشغيل', skipped: 'تُخطّيت' };
+function calHtml() {
+  const done = CAL.i >= CAL.langs.length, ok = CAL.results.filter(r => r && !r.err);
+  const best = ok.slice().sort((a, b) => b.total - a.total)[0];
+  const bestName = ok.slice().sort((a, b) => b.name - a.name)[0], bestDig = ok.slice().sort((a, b) => b.digits - a.digits)[0];
+  const label = l => (CAL_LANGS.find(x => x[0] === l) || [l, l])[1];
+  const table = CAL.results.length ? `<div class="tablewrap"><table style="min-width:0"><thead><tr><th>اللغة</th><th>ما سُمع</th>${CAL.target ? '<th>الاسم</th>' : ''}<th>الإجابات</th></tr></thead><tbody>
+    ${CAL.results.map(r => r && `<tr><td>${esc(label(r.lang))}</td>${r.err ? `<td colspan="${CAL.target ? 3 : 2}"><span class="tag bad">${esc(CAL_ERR[r.err] || r.err)}</span></td>` : `<td>${esc(r.heard)}</td>${CAL.target ? `<td class="num">${Math.round(r.name * 100)}%</td>` : ''}<td class="num">${Math.round(r.digits * 100)}%</td>`}</tr>`).join('')}
+    </tbody></table></div>` : '';
+  if (done) return `<div class="card"><h2>نتيجة اختبار اللغات</h2>${table}
+    ${best ? `<div class="notice ok"><b>الأدق لصوتك: ${esc(label(best.lang))}</b>${bestName && bestDig && bestName.lang !== bestDig.lang ? `<span>الأسماء أدق بـ${esc(label(bestName.lang))} والإجابات أدق بـ${esc(label(bestDig.lang))}. لغة واحدة أسرع لأن الميكروفون لا يُعاد تشغيله بين الاسم والإجابات.</span>` : ''}</div>
+      <div class="row"><button class="btn primary" data-act="cal-use" data-name="${best.lang}" data-ans="${best.lang}">استخدام ${esc(label(best.lang))} للاثنين</button>
+      ${bestName && bestDig && bestName.lang !== bestDig.lang ? `<button class="btn" data-act="cal-use" data-name="${bestName.lang}" data-ans="${bestDig.lang}">الأسماء: ${esc(label(bestName.lang))} · الإجابات: ${esc(label(bestDig.lang))}</button>` : ''}</div>`
+      : '<div class="notice warn">لم تنجح أي لغة. تأكد من الإنترنت والميكروفون، ثم أعد الاختبار.</div>'}
+    <div class="row"><button class="btn" data-act="cal-start">إعادة الاختبار</button><button class="btn" data-act="cal-cancel">إغلاق</button></div></div>`;
+  const [, lname] = CAL.langs[CAL.i];
+  return `<div class="card"><div class="card-head"><h2>اختبار أفضل لغة لصوتك</h2><span class="chip">اللغة <b class="num">${CAL.i + 1}</b> من <b class="num">${CAL.langs.length}</b></span></div>
+    <p class="muted small">يجرّب التطبيق كل لغة تعرّف على صوتك، ويختار الأدق في فهم الأسماء والإجابات. قل العبارة نفسها في كل مرة.</p>
+    <div class="mic-zone">
+      <div class="phase">${esc(lname)}</div>
+      <button class="mic ${CAL.listening ? 'on' : ''}" data-act="cal-listen" ${CAL.listening ? 'disabled' : ''} aria-label="ابدأ الاختبار بهذه اللغة">${MIC}</button>
+      <div>${CAL.listening ? 'أستمع… قل:' : 'اضغط ثم قل:'}</div>
+      <div class="nm" style="font-size:1.4rem;font-weight:700">${esc(calPhrase())}</div>
+    </div>
+    ${table}
+    <div class="row"><button class="btn sm" data-act="cal-skip" ${CAL.listening ? 'disabled' : ''}>تخطّي هذه اللغة</button><button class="btn sm" data-act="cal-cancel">إلغاء</button></div></div>`;
+}
+function handleFinal(alts) {
+  const text = alts[0] || '';
+  const words = text.split(/\s+/).filter(Boolean);
+  if (!words.length) return;
+  // «… احفظ …»: ما قبل الأمر للطالب الحالي، وما بعده للطالب التالي
+  const k = words.findIndex(w => WORDS.SAVE.has(loose(w)));
+  if (k >= 0) {
+    const before = words.slice(0, k).join(' '), after = words.slice(k + 1).join(' ');
+    if (before) handleFinal([before]);
+    const ok = trySave();
+    if (ok && after) handleFinal([after]);
+    return;
+  }
+  if (V.phase !== 'camera' && words.length <= 2 && words.every(w => WORDS.CLEAR.has(loose(w)))) { V.text = ''; V.manual = {}; V.scoreText = ''; setPhase(nextPhase()); return; }
+  if (S.settings.nameMode === 'order' && words.length <= 2) {
+    const nx = words.every(w => WORDS.NEXT.has(loose(w))), pv = words.every(w => WORDS.PREV.has(loose(w)));
+    if (nx || pv) {
+      const from = V.row; V = Object.assign(newV(), { noAuto: true }); autoPick(nx ? 1 : -1, typeof from === 'number' ? from : undefined);
+      if (V.row == null) { V.noAuto = false; if (pv) speak('لا يوجد طالب قبله'); }
+      tick(); setPhase(nextPhase()); return;
+    }
+  }
+  if (V.phase === 'camera') { camSpeech(words, alts); return; }
+  if (V.phase === 'name') {
+    if (words.every(isAnswerToken)) { if (V.block) return; alarm(); speak('قل اسم الطالب أولاً'); return; }
+    const parts = alts.map(splitNameAnswers);
+    applyHeardName(parts.map(p => p.name));
+    if (V.row != null) { tick(); setPhase(nextPhase()); if (parts[0].rest) handleFinal([parts[0].rest]); }
+    else keepFocus(renderVoice);
+    return;
+  }
+  if (V.phase === 'answers') {
+    const best = bestAnswerAlt(alts);
+    V.text = (V.text + ' ' + best).trim();
+    if (nextPhase() === 'confirm') { setPhase('confirm'); afterComplete(); }
+    return;
+  }
+  if (V.phase === 'score') {
+    const s = alts.find(a => parseScore(a) != null);
+    if (s) { V.scoreText = s.trim(); setPhase('confirm'); afterComplete(); }
+    return;
+  }
+  // مرحلة التأكيد: إعادة قراءة الإجابات كاملة تصحّحها؛ واسم جديد دون «احفظ» يُنبَّه عليه بدل خلط الطلبة
+  if (V.phase === 'confirm') {
+    if (words.every(isAnswerToken)) { if (!rereadAnswers(alts)) { tone(440, 0.12); } return; }
+    alarm(); speak('قل احفظ أولاً');
+  }
+}
+// الأوامر أثناء الكاميرا: «أعد»، «إلغاء»، وتصحيح سؤال «سؤال 3، 2». أي كلام آخر لا يُعامَل كاسم جديد
+function camSpeech(words, alts) {
+  const only = set => words.length <= 2 && words.every(w => set.has(loose(w)));
+  if (only(WORDS.CLEAR)) { camRedo(); tick(); return; }
+  if (only(CAM_CANCEL)) { camCancel(); return; }
+  if (words.every(isAnswerToken) || words.some(w => WORDS.QW.has(loose(w)))) {
+    const p = parseAnswers(bestAnswerAlt(alts), keyN());
+    let any = false;
+    p.answers.forEach((v, q) => { if (v != null) { V.manual[q] = v; any = true; } });
+    if (any) { tick(); updateCamHud(); drawOverlay(); keepFocus(renderVoice); camMaybeAuto(); }
+  }
+}
+function afterComplete() {
+  const s = currentScore();
+  if (s == null) return;
+  okTone();
+  if (S.settings.speak) speak(`${fmt(s)} من ${fmt(maxScore())}`);
+  if (S.settings.autoSave && (V.sure || V.picked) && !issues().length) {
+    const stamp = V.text;   // يُلغى الحفظ التلقائي إذا صُحّحت الإجابات خلال المهلة
+    setTimeout(() => { if (V.phase === 'confirm' && V.text === stamp) trySave(true); }, 1600);
+  }
+}
+function trySave(auto = false) {
+  const g = G(), iss = issues();
+  if (iss.length) { setPhase(nextPhase()); if (auto !== true) { alarm(); speak('النتيجة غير مكتملة'); } return false; }
+  const score = currentScore();
+  const mode = S.settings.mode;
+  const rec = { score, answers: mode !== 'score' ? finalAnswers().answers.map(v => v == null ? null : v) : null, heard: V.heard, time: Date.now(), seq: ++S.seq,
+    source: mode === 'camera' ? (CAM.photo ? 'camera-photo' : 'camera') : 'voice', reviewed: Object.keys(V.manual).map(Number) };
+  let name;
+  if (V.row === 'extra') { name = V.heard || 'بدون اسم'; EXT(g).push({ name, ...rec }); }
+  else {
+    if (RES(g)[V.row] && !V.regrade) { blockGraded(V.row, studentName(V.row), RES(g)[V.row].score); setPhase('name'); return false; }
+    name = studentName(V.row); RES(g)[V.row] = rec;
+  }
+  save(); okTone();
+  if (mode === 'camera' && V.cam && V.cam.locked && (CAM.on || CAM.photo)) CAM.await = { sig: V.cam.locked.sig, diff: 0 };
+  clearTimeout(CAM.autoT);
+  V = newV(); V.saved = { name, score };
+  toast(`حُفظت درجة ${name}: ${fmt(score)}`);
+  setPhase('name');
+  if (mode === 'camera' && CAM.photo) stopCamera();
+  return true;
+}
+const PHASE_TXT = { name: 'قل اسم الطالب', answers: 'اقرأ الإجابات… ثم قل «احفظ»', score: 'قل الدرجة', confirm: 'قل «احفظ» للحفظ، أو «امسح» للإعادة', camera: 'الكاميرا تقرأ الورقة… ثم قل «احفظ»' };
+// خطوات السماح بالميكروفون حسب نوع الجهاز
+function allowSteps() {
+  const android = `<li><b>Chrome على أندرويد:</b> اضغط رمز القفل أو ⓘ بجانب عنوان الصفحة ← «الأذونات» ← «الميكروفون» ← «سماح»، ثم أعد تحميل الصفحة.</li>
+    <li>إن بقي مرفوضاً: إعدادات الهاتف ← التطبيقات ← Chrome ← الأذونات ← الميكروفون ← «السماح فقط أثناء استخدام التطبيق».</li>`;
+  const ios = `<li><b>Safari على آيفون:</b> اضغط «aA» في شريط العنوان ← «إعدادات موقع الويب» ← «الميكروفون» ← «سماح»، ثم أعد تحميل الصفحة.</li>
+    <li>وتأكد من: الإعدادات ← Safari ← الميكروفون ← «اسأل» أو «سماح»، ومن: الإعدادات ← الخصوصية والأمان ← التعرّف على الكلام.</li>`;
+  const desktop = `<li><b>على الحاسوب:</b> اضغط رمز القفل بجانب العنوان ← الميكروفون ← سماح، ثم أعد تحميل الصفحة.</li>`;
+  return `<ul>${IS_IOS ? ios : IS_ANDROID ? android : desktop + android + ios}</ul>`;
+}
+const MIC_HELP = {
+  'not-allowed': () => ['لم يُسمح باستخدام الميكروفون', 'رُفض الإذن لهذه الصفحة. للسماح به:' + allowSteps()],
+  busy: () => ['الميكروفون مشغول بتطبيق آخر', 'أغلق المكالمة أو مسجّل الصوت أو أي تطبيق يستخدم الميكروفون (وتبويبات المتصفح الأخرى)، ثم أعد المحاولة.'],
+  'audio-capture': () => ['لا يوجد ميكروفون متاح', 'لم يُعثر على جهاز إدخال صوتي. صِل سماعة بميكروفون أو تحقّق من إعدادات الصوت في الجهاز.'],
+  insecure: () => ['الصفحة غير آمنة للميكروفون', `المتصفحات تسمح بالميكروفون فقط في الصفحات الآمنة (https أو localhost). ${IS_ANDROID ? 'فتح الملف من مدير الملفات أو من تطبيق محادثة قد يمنعه. ' : ''}افتح التطبيق من رابط https${IS_ANDROID || IS_IOS ? '' : '، أو على الحاسوب عبر «تشغيل-المصحح.bat»'}.`],
+  unsupported: () => ['المتصفح لا يدعم التعرّف على الكلام', IS_IOS ? 'استخدم Safari على آيفون (iOS 14.5 أو أحدث)، وفعّل Siri والإملاء من الإعدادات.' : 'استخدم Chrome أو Edge أو Safari. متصفح Firefox لا يدعم هذه الخاصية.'],
+  'service-not-allowed': () => ['خدمة التعرّف على الكلام غير مسموحة', IS_IOS ? 'فعّل Siri: الإعدادات ← Siri، وفعّل الإملاء: الإعدادات ← عام ← لوحة المفاتيح ← «تفعيل الإملاء»، ثم أعد تحميل الصفحة.' : 'هذا المتصفح أو هذا العرض يمنع خدمة التعرّف على الكلام. افتح التطبيق في Chrome.'],
+  'language-not-supported': () => ['اللغة غير مدعومة هنا', 'غيّر لغة الأسماء أو الحروف من «إعدادات الصوت».'],
+  network: () => ['انقطع الاتصال بخدمة التعرّف', 'تحقّق من الإنترنت، أو نزّل حزمة اللغة من «العمل دون إنترنت» في الإعداد.'],
+  restart: () => ['توقف الاستماع', 'أوقف المتصفح الميكروفون (يحدث ذلك أحياناً في Safari أو بعد صمت طويل). اضغط «إعادة المحاولة» للمتابعة.'],
+  'mic-error': () => ['تعذّر تشغيل الميكروفون', 'حدث خطأ غير متوقع. أعد المحاولة، وإن تكرر فأعد تحميل الصفحة.']
+};
+function micHelpHtml() {
+  const out = [];
+  if (IN_APP) out.push(`<div class="notice warn alert"><b>الصفحة مفتوحة داخل تطبيق آخر</b><span>المتصفحات الداخلية في واتساب وتيليجرام وفيسبوك لا تسمح بالميكروفون غالباً. من قائمة ⋮ أو المشاركة اختر «فتح في Chrome»${IS_IOS ? ' أو «فتح في Safari»' : ''}.</span></div>`);
+  if (micStarting) out.push(`<div class="notice info" role="status"><b>جارٍ طلب إذن الميكروفون…</b><span>اختر «سماح» في نافذة المتصفح.</span></div>`);
+  const code = V.err && V.err !== 'offline' ? V.err : (micPerm === 'denied' && !session.on ? 'not-allowed' : null);
+  if (code) {
+    const [title, body] = (MIC_HELP[code] || MIC_HELP['mic-error'])();
+    out.push(`<div class="notice bad alert" role="alert"><b>${esc(title)}</b><div>${body}</div>
+      <div class="row"><button class="btn sm primary" data-act="v-retry">${MIC}إعادة المحاولة</button></div>
+      <span class="small">يمكنك المتابعة دون ميكروفون: اختر الطالب أو اكتب اسمه، واضغط الحروف في جدول الإجابات، أو استخدم ميكروفون لوحة المفاتيح داخل حقل الإجابات.</span></div>`);
+  } else if (IS_FILE) out.push(fileNote());
+  return out.join('');
+}
+function fileNote() {
+  return `<details class="notice warn"><summary><b>يطلب Chrome إذن الميكروفون كل مرة؟</b></summary>
+    <p>الصفحة مفتوحة كملف محلي (file://)، وChrome لا يحفظ الإذن لهذا النوع من الصفحات. التطبيق يطلبه مرة واحدة عند الضغط على الميكروفون ويبقى يستمع حتى تضغطه مرة أخرى.</p>
+    <p>ليُحفظ الإذن نهائياً: على الحاسوب شغّل «تشغيل-المصحح.bat» من مجلد التطبيق، وعلى الهاتف افتحه من رابط https.</p></details>`;
+}
+function offlineHtml() {
+  const { need, ok } = offlineNeeds(), online = navigator.onLine, order = S.settings.nameMode === 'order';
+  if (online && V.err !== 'offline') return ok ? `<div class="notice ok small">التعرّف على الصوت يعمل داخل الجهاز (${need.map(l => LANG_NAME[l] || l).join('، ')}) — يستمر دون إنترنت.</div>` : '';
+  if (ok) return `<div class="notice ok">غير متصل بالإنترنت — التعرّف يعمل داخل الجهاز.</div>`;
+  const tips = [];
+  if (!order) tips.push(`<button class="btn sm" data-act="v-namemode" data-mode="order">التصحيح بترتيب القائمة (لا يحتاج قراءة الأسماء)</button>`);
+  if (!isLocal(S.settings.ansLang) && isLocal('en-US')) tips.push(`<button class="btn sm" data-act="v-anslang-en">قراءة الإجابات بالإنجليزية — متاحة دون إنترنت</button>`);
+  return `<div class="notice warn alert"><b>${online ? 'التعرّف على الصوت غير متاح دون إنترنت لهذه اللغة' : 'أنت غير متصل بالإنترنت'}</b>
+    <span>${need.filter(l => !isLocal(l)).map(l => `${esc(LANG_NAME[l] || l)}: ${LOCAL_TXT[LOCAL[l]] || 'غير معروف'}`).join(' · ')}</span>
+    <span>يمكنك أيضاً الضغط داخل حقل الإجابات واستخدام ميكروفون لوحة مفاتيح الهاتف إن كانت تدعم الكتابة الصوتية دون إنترنت.</span>
+    ${tips.length ? `<div class="row">${tips.join('')}</div>` : ''}
+    <div class="row"><button class="btn sm" data-act="go" data-step="setup">إعدادات العمل دون إنترنت</button></div></div>`;
+}
+function blockHtml() {
+  const b = V.block, g = G();
+  if (b) {
+    if (b.kind === 'graded') return `<div class="notice bad alert" role="alert"><b>لن يُصحَّح: ${esc(b.name)} مصحَّح مسبقاً</b><span>درجته المحفوظة <b class="num">${fmt(b.score)}</b> (صف ${rowNo(b.row)}). قل اسم الطالب التالي، أو أعد تصحيحه عمداً.</span>
+      <div class="row"><button class="btn sm danger" data-act="v-regrade">إعادة تصحيح هذا الطالب</button><button class="btn sm" data-act="v-reset">متابعة</button></div></div>`;
+    if (b.kind === 'graded-extra') return `<div class="notice bad alert" role="alert"><b>لن يُصحَّح: ${esc(b.name)} مصحَّح مسبقاً</b><span>درجته المحفوظة <b class="num">${fmt(b.score)}</b>.</span><div class="row"><button class="btn sm" data-act="v-reset">متابعة</button></div></div>`;
+    if (b.kind === 'dup') return `<div class="notice bad alert" role="alert"><b>لن يُصحَّح: الاسم «${esc(b.name)}» مكرر في قائمة الشعبة</b><span>يظهر في الصفوف ${b.rows.map(r => rowNo(r)).join('، ')}. اختر الطالب المقصود بنفسك إن كنت متأكداً:</span>
+      <div class="row">${b.rows.map(r => `<button class="btn sm" data-act="v-pick" data-row="${r}">صف ${rowNo(r)}${RES(g)[r] ? ' (مصحَّح)' : ''}</button>`).join('')}<button class="btn sm" data-act="v-reset">تجاهل</button></div></div>`;
+  }
+  if (V.elsewhere) { const o = V.elsewhere; return `<div class="notice warn alert" role="alert"><b>«${esc(o.name)}» في شعبة ${esc(o.sec)} وليس في الشعبة الحالية</b>
+    <div class="row"><button class="btn sm" data-act="v-switch">التبديل إلى شعبة ${esc(o.sec)}</button><button class="btn sm" data-act="v-reset">تجاهل</button></div></div>`; }
+  return '';
+}
+function renderVoice() {
+  const el = $('#step-voice'), g = G();
+  if (!g) {
+    el.innerHTML = `<div class="card empty"><h2>اختر الصف والشعبة</h2><p>أضف صفاً وشعبة من «الإعداد» أولاً.</p><button class="btn primary" data-act="go" data-step="setup">الإعداد</button></div>`;
+    return;
+  }
+  if (CAL) { el.innerHTML = micHelpHtml() + calHtml(); return; }
+  ensurePick();
+  const mode = S.settings.mode, order = S.settings.nameMode === 'order' && !!g.fid, sts = students(g), doneN = Object.keys(RES(g)).length;
+  const f = finalAnswers(), sc = currentScore(), iss = issues();
+  const label = (session.on ? 'أستمع — ' : 'اضغط لبدء الاستماع · ') + PHASE_TXT[V.phase];
+  let studentBlock = '';
+  if (V.row != null && V.row !== 'extra') {
+    studentBlock = `<div class="student sure"><span class="small muted">${V.byOrder ? 'الطالب التالي في القائمة' : 'الطالب'}</span><span class="nm">${esc(studentName(V.row))}</span>
+      <div class="row"><span class="tag ${V.picked ? 'info' : 'ok'}">${V.byOrder ? 'بترتيب القائمة' : V.picked ? 'اختير يدوياً' : 'مطابق لملف الأسماء'}</span>${V.regrade ? '<span class="tag warn">إعادة تصحيح</span>' : ''}<span class="small muted">صف ${rowNo(V.row)}${V.heard ? ` · سُمع: «${esc(V.heard)}»` : ''}</span></div>
+      <div class="row">${order ? `<button class="btn sm" data-act="v-step" data-dir="-1">السابق</button><button class="btn sm" data-act="v-step" data-dir="1">تخطٍّ إلى التالي</button><button class="btn sm" data-act="v-change">اختيار طالب آخر</button>` : `<button class="btn sm" data-act="v-change">ليس هذا الطالب</button>`}</div>
+      ${order ? '<span class="small muted">بالصوت: «التالي» أو «تخطي»، و«السابق».</span>' : ''}</div>`;
+  } else if (V.row === 'extra') {
+    studentBlock = `<div class="student sure"><span class="small muted">الطالب</span><span class="nm">${esc(V.heard)}</span><div class="row"><button class="btn sm" data-act="v-change">تغيير</button></div></div>`;
+  } else if (!V.block && (V.heard || V.search) && g.fid) {
+    const q = V.search.trim(), list = q ? rankNames([q]).slice(0, 8) : V.cands.length ? V.cands : sts.filter(s => !RES(g)[s.row]).slice(0, 8).map(s => ({ ...s, sim: 0 }));
+    studentBlock = `<div class="student">
+      ${V.heard ? `<span>سُمع: «<b>${esc(V.heard)}</b>» — ${list.length ? 'اختر الطالب الصحيح:' : 'لا يوجد اسم قريب في هذه الشعبة.'}</span>` : ''}
+      <div class="cands">${list.map(c => `<button class="btn" data-act="v-pick" data-row="${c.row}">${esc(c.name)} <span class="small muted">صف ${rowNo(c.row)}</span> ${c.sim ? `<span class="tag ${c.sim >= 0.78 ? 'ok' : c.sim >= 0.55 ? 'warn' : ''}">${Math.round(c.sim * 100)}%</span>` : ''}${RES(g)[c.row] ? ' <span class="tag warn">مصحَّح</span>' : ''}</button>`).join('')}</div>
+      <label class="field">بحث في الأسماء<input type="search" id="v-search" value="${esc(V.search.trim())}" placeholder="اكتب جزءاً من الاسم" autocomplete="off"></label>
+      <button class="btn sm" data-act="v-extra">إضافته كطالب غير موجود في الملف</button></div>`;
+  }
+  const lkc = V.cam && V.cam.locked;
+  const camBlock = `
+    <div class="card">
+      <div class="card-head"><h3>قراءة الكاميرا</h3>${V.row != null ? `<div class="row"><button class="btn sm primary" data-act="cam-open">${lkc ? 'عرض الكاميرا' : 'فتح الكاميرا'}</button><button class="btn sm" data-act="pick" data-target="in-cam-photo">التقاط صورة بدلاً من البث</button></div>` : ''}</div>
+      <p class="small muted">${V.row == null ? 'قل اسم الطالب أولاً؛ تُفتح الكاميرا تلقائياً بعد تأكيده.' : lkc ? 'ثُبّتت القراءة. راجع المعلَّم بالبرتقالي ثم قل «احفظ».' : 'وجّه الكاميرا نحو الورقة حتى تظهر المربعات الأربعة؛ تُثبَّت القراءة بعد لحظة.'}</p>
+      ${lkc ? `<div class="atable">${finalAnswers().answers.map((a, q) => {
+        const k = K().answers[q], d = lkc.dec[q], man = q in V.manual;
+        const st = a == null ? `<span class="tag warn">${d ? CAM_ST[d.st] : 'خارج الورقة'} — تحتاج مراجعة</span>` : a < 0 ? '<span class="tag">بلا إجابة</span>' : k == null ? '' : a === k ? `<span class="tag ok">صحيحة +${fmt(+K().points[q] || 0)}</span>` : `<span class="tag bad">خاطئة — الصحيحة ${optLabels()[k]}</span>`;
+        return `<div class="arow ${a == null ? 'missing' : ''}"><span class="qn">س${q + 1}</span>
+          <div class="bubs">${optLabels().map((o, i) => `<button class="bub ${a === i && k != null ? (a === k ? 'right' : 'wrong') : ''}" aria-pressed="${a === i}" data-act="cam-fix" data-q="${q}" data-o="${i}">${o}</button>`).join('')}<button class="bub blank" aria-pressed="${a === -1}" data-act="cam-fix" data-q="${q}" data-o="-1">بلا إجابة</button></div>
+          <div class="meta">${st}${man ? ' <span class="tag info">عُدّلت يدوياً</span>' : ''}</div></div>`;
+      }).join('')}</div>` : ''}
+    </div>`;
+  const answersBlock = mode === 'camera' ? camBlock : mode === 'answers' ? `
+    <div class="card">
+      <div class="card-head"><h3>الإجابات</h3><div class="row"><button class="btn sm" data-act="v-undo" ${V.text ? '' : 'disabled'}>حذف آخر كلمة</button><button class="btn sm" data-act="v-clear" ${V.text || Object.keys(V.manual).length ? '' : 'disabled'}>مسح الإجابات</button></div></div>
+      <p class="small muted">${numMode() ? 'قل الأرقام بالترتيب: 1 بدل A، و2 بدل B، و3 بدل C، و4 بدل D. لسؤال بعينه قل «سؤال خمسة 3». للمتروك قل «فارغ».' : 'قل الحروف بالترتيب: «اي، بي، سي، دي». لسؤال بعينه قل رقمه قبل الحرف: «ثلاثة سي». للمتروك قل «فارغ».'}</p>
+      <label class="field">النص المسموع (يمكن تعديله)<textarea id="v-text" dir="auto" placeholder="اي بي سي دي …">${esc(V.text)}</textarea></label>
+      ${f.unknown.length ? `<div class="notice warn small">كلمات لم تُفهم وتُجوهلت: ${f.unknown.map(esc).join('، ')}</div>` : ''}
+      ${f.extra ? `<div class="notice warn small">سُمعت ${f.extra} إجابة زائدة بعد السؤال الأخير وتُجوهلت.</div>` : ''}
+      <div class="atable">${f.answers.map((a, q) => {
+        const k = K().answers[q];
+        const st = a == null ? '<span class="tag warn">لم تُسجَّل</span>' : a < 0 ? '<span class="tag">بلا إجابة</span>' : k == null ? '' : a === k ? `<span class="tag ok">صحيحة +${fmt(+K().points[q] || 0)}</span>` : `<span class="tag bad">خاطئة — الصحيحة ${optLabels()[k]}</span>`;
+        return `<div class="arow ${a == null ? 'missing' : ''}"><span class="qn">س${q + 1}</span>
+          <div class="bubs">${optLabels().map((o, i) => `<button class="bub ${a === i && k != null ? (a === k ? 'right' : 'wrong') : ''}" aria-pressed="${a === i}" data-act="v-set" data-q="${q}" data-o="${i}">${o}</button>`).join('')}<button class="bub blank" aria-pressed="${a === -1}" data-act="v-set" data-q="${q}" data-o="-1">بلا إجابة</button></div>
+          <div class="meta">${st}</div></div>`;
+      }).join('')}</div>
+    </div>` : `
+    <div class="card"><h3>الدرجة</h3>
+      <label class="field">قل الدرجة أو اكتبها<input type="text" id="v-score" inputmode="decimal" value="${esc(V.scoreText)}" placeholder="مثال: 7.5" autocomplete="off"></label></div>`;
+  el.innerHTML = `
+    ${V.saved ? `<div class="notice ok"><b>حُفظت درجة ${esc(V.saved.name)}: ${fmt(V.saved.score)}.</b></div>` : ''}
+    ${micHelpHtml()}
+    ${offlineHtml()}
+    ${V.allDone && order ? `<div class="notice ok"><b>صُحّح كل طلبة ${esc(gLabel(g))}.</b> <span>اختر شعبة أخرى أو نزّل ملف Excel.</span></div>` : ''}
+    <div class="card">
+      <div class="active-bar">${groupSelect('v-group')}${examSelect('v-exam')}
+        ${g.fid ? `<span class="chip">صُحّح <b class="num">${doneN}</b> من <b class="num">${sts.length}</b></span>` : `<span class="chip">محفوظ: <b class="num">${EXT(g).length}</b></span>`}</div>
+      ${g.fid ? `<div class="progressbar" aria-hidden="true"><i style="width:${sts.length ? Math.round(doneN / sts.length * 100) : 0}%"></i></div>` : ''}
+      <div class="row" role="radiogroup" aria-label="طريقة التصحيح">
+        <button class="btn sm ${mode === 'answers' ? 'primary' : ''}" data-act="v-mode" data-mode="answers" aria-pressed="${mode === 'answers'}">قراءة الإجابات</button>
+        <button class="btn sm ${mode === 'score' ? 'primary' : ''}" data-act="v-mode" data-mode="score" aria-pressed="${mode === 'score'}">قراءة الدرجة مباشرة</button>
+        <button class="btn sm ${mode === 'camera' ? 'primary' : ''}" data-act="v-mode" data-mode="camera" aria-pressed="${mode === 'camera'}">كاميرا</button>
+      </div>
+      ${mode === 'camera' ? `<div class="seg-row"><span class="small muted">الحفظ بالكاميرا</span>
+        <div class="seg" role="radiogroup" aria-label="طريقة الحفظ">
+          <button data-act="v-camsave" data-v="auto" role="radio" aria-checked="${S.settings.camSave === 'auto'}" aria-pressed="${S.settings.camSave === 'auto'}">حفظ تلقائي</button>
+          <button data-act="v-camsave" data-v="manual" role="radio" aria-checked="${S.settings.camSave !== 'auto'}" aria-pressed="${S.settings.camSave !== 'auto'}">حفظ يدوي</button>
+        </div>
+        <span class="small muted">${S.settings.camSave === 'auto' ? 'تُحفظ الدرجة فور تثبيت قراءة كاملة، ثم الطالب التالي.' : 'بعد تثبيت القراءة اضغط «حفظ» أو قل «احفظ»، ثم الطالب التالي.'}</span></div>` : ''}
+      ${g.fid ? `<div class="row" role="radiogroup" aria-label="تحديد الطالب">
+        <span class="small muted">تحديد الطالب:</span>
+        <button class="btn sm ${!order ? 'primary' : ''}" data-act="v-namemode" data-mode="voice" aria-pressed="${!order}">بقول اسمه</button>
+        <button class="btn sm ${order ? 'primary' : ''}" data-act="v-namemode" data-mode="order" aria-pressed="${order}">بترتيب القائمة</button>
+      </div>` : ''}
+      <div class="mic-zone">
+        <button class="mic ${session.on ? 'on' : ''}" data-act="v-mic" aria-pressed="${session.on}" aria-label="${session.on ? 'إيقاف الاستماع' : 'بدء الاستماع'}">${session.on ? STOP : MIC}</button>
+        <div class="phase" aria-live="polite">${esc(label)}</div>
+        <div class="interim" id="live" aria-live="off"></div>
+      </div>
+      <div class="row small" style="justify-content:center">
+        <span class="muted">لغة التعرّف: ${esc(LANG_NAME[S.settings.nameLang] || S.settings.nameLang)}${S.settings.nameLang !== S.settings.ansLang && !order ? ` للأسماء، ${esc(LANG_NAME[S.settings.ansLang] || S.settings.ansLang)} للإجابات <span class="tag warn">لغتان: أبطأ قليلاً</span>` : ''}</span>
+        <button class="btn sm" data-act="cal-start">اختبار أفضل لغة لصوتي</button>
+      </div>
+      ${blockHtml()}
+      ${studentBlock}
+      ${V.row == null && !V.heard && !V.search.trim() && !V.block ? `<div class="row"><input type="text" id="v-name" placeholder="أو اكتب اسم الطالب" autocomplete="off" style="flex:1"><button class="btn" data-act="v-name-go">بحث</button></div>` : ''}
+    </div>
+    ${answersBlock}
+    <div class="card">
+      <div class="score ${iss.length ? 'tentative' : ''}"><span class="big">${sc == null ? '—' : fmt(sc)}</span><span class="muted">من ${fmt(maxScore())}</span>${iss.length ? '<span class="tag warn">غير مكتملة</span>' : '<span class="tag ok">جاهزة للحفظ</span>'}</div>
+      ${iss.length && (V.heard || V.text || V.scoreText) ? `<div class="notice warn"><ul>${iss.map(i => `<li>${esc(i)}</li>`).join('')}</ul></div>` : ''}
+      <div class="row">
+        <button class="btn primary big" data-act="v-save" ${iss.length ? 'disabled' : ''}>حفظ الدرجة</button>
+        <button class="btn" data-act="v-reset">الطالب التالي</button>
+        <button class="btn" data-act="export-active">تحميل Excel</button>
+      </div>
+    </div>`;
+  if (V.interim) updateLive();
+}
+
+/* ---------- الكاميرا: قراءة ورقة الإجابة من البث الحي ---------- */
+// محرك التحليل: يعمل داخل Web Worker (أو في الصفحة إن تعذّر). لا يغادر أي إطار الجهاز.
+// لا يعتمد على أي متغير خارجي لأنه يُنسخ نصاً إلى الـ Worker.
+function camEngine(self) {
+  let L = null;
+  const solve = (A, b) => {
+    const n = b.length, M = A.map((r, i) => [...r, b[i]]);
+    for (let c = 0; c < n; c++) {
+      let p = c;
+      for (let r = c + 1; r < n; r++) if (Math.abs(M[r][c]) > Math.abs(M[p][c])) p = r;
+      const t = M[c]; M[c] = M[p]; M[p] = t;
+      const d = M[c][c]; if (Math.abs(d) < 1e-12) throw new Error('singular');
+      for (let k = c; k <= n; k++) M[c][k] /= d;
+      for (let r = 0; r < n; r++) if (r !== c) { const f = M[r][c]; if (f) for (let k = c; k <= n; k++) M[r][k] -= f * M[c][k]; }
+    }
+    return M.map(r => r[n]);
+  };
+  const homography = (src, dst) => {
+    const A = [], b = [];
+    for (let i = 0; i < 4; i++) { const [x, y] = src[i], [u, v] = dst[i]; A.push([x, y, 1, 0, 0, 0, -u * x, -u * y]); b.push(u); A.push([0, 0, 0, x, y, 1, -v * x, -v * y]); b.push(v); }
+    return [...solve(A, b), 1];
+  };
+  const ap = (H, x, y) => { const w = H[6] * x + H[7] * y + H[8]; return [(H[0] * x + H[1] * y + H[2]) / w, (H[3] * x + H[4] * y + H[5]) / w]; };
+  function darkMask(g, w, h) {
+    const W = w + 1, I = new Float64Array(W * (h + 1));
+    for (let y = 0; y < h; y++) { let row = 0; for (let x = 0; x < w; x++) { row += g[y * w + x]; I[(y + 1) * W + x + 1] = I[y * W + x + 1] + row; } }
+    const R = Math.max(8, Math.round(Math.min(w, h) / 18)), m = new Uint8Array(w * h);
+    for (let y = 0; y < h; y++) {
+      const y0 = Math.max(0, y - R), y1 = Math.min(h, y + R + 1);
+      for (let x = 0; x < w; x++) {
+        const x0 = Math.max(0, x - R), x1 = Math.min(w, x + R + 1);
+        const mean = (I[y1 * W + x1] - I[y0 * W + x1] - I[y1 * W + x0] + I[y0 * W + x0]) / ((y1 - y0) * (x1 - x0)), v = g[y * w + x];
+        if (v < mean * 0.72 && v < mean - 25) m[y * w + x] = 1;
+      }
+    }
+    return m;
+  }
+  function components(m, w, h) {
+    const lab = new Int32Array(w * h), st = new Int32Array(w * h), out = [];
+    let id = 0;
+    for (let i = 0; i < w * h; i++) {
+      if (!m[i] || lab[i]) continue;
+      id++; let sp = 0; st[sp++] = i; lab[i] = id;
+      let a = 0, sx = 0, sy = 0, sxx = 0, syy = 0, sxy = 0, x0 = w, x1 = 0, y0 = h, y1 = 0;
+      while (sp) {
+        const p = st[--sp], x = p % w, y = (p - x) / w;
+        a++; sx += x; sy += y; sxx += x * x; syy += y * y; sxy += x * y;
+        if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+        if (x > 0 && m[p - 1] && !lab[p - 1]) { lab[p - 1] = id; st[sp++] = p - 1; }
+        if (x < w - 1 && m[p + 1] && !lab[p + 1]) { lab[p + 1] = id; st[sp++] = p + 1; }
+        if (y > 0 && m[p - w] && !lab[p - w]) { lab[p - w] = id; st[sp++] = p - w; }
+        if (y < h - 1 && m[p + w] && !lab[p + w]) { lab[p + w] = id; st[sp++] = p + w; }
+      }
+      const cx = sx / a, cy = sy / a;
+      out.push({ a, cx: cx + 0.5, cy: cy + 0.5, vxx: sxx / a - cx * cx, vyy: syy / a - cy * cy, vxy: sxy / a - cx * cy, bw: x1 - x0 + 1, bh: y1 - y0 + 1 });
+    }
+    return out;
+  }
+  function squareish(c, minDim) {
+    const s = Math.sqrt(c.a);
+    if (s < 0.010 * minDim || s > 0.09 * minDim) return false;
+    if (c.a / (c.bw * c.bh) < 0.5) return false;
+    if ((c.vxx + c.vyy) / c.a > 0.2) return false;
+    const tr = c.vxx + c.vyy, det = c.vxx * c.vyy - c.vxy * c.vxy, disc = Math.sqrt(Math.max(0, tr * tr / 4 - det));
+    const l1 = tr / 2 + disc, l2 = tr / 2 - disc;
+    return l2 > 0 && Math.sqrt(l1 / l2) <= 2.2;
+  }
+  // الزوايا الأربع بترتيب الورقة (أعلى يسار، أعلى يمين، أسفل يمين، أسفل يسار) مع معرفة الاتجاه من المربعين الجانبيين
+  function orderQuad(cands, midT) {
+    if (cands.length < 4) return null;
+    const best = f => cands.reduce((b, x) => (f(x) > f(b) ? x : b));
+    const tl = best(p => -(p.cx + p.cy)), br = best(p => p.cx + p.cy), tr = best(p => p.cx - p.cy), bl = best(p => p.cy - p.cx);
+    const set = new Set([tl, tr, br, bl]);
+    if (set.size < 4) return null;
+    const quad = [tl, tr, br, bl], areas = quad.map(q => q.a), amin = Math.min(...areas), amax = Math.max(...areas);
+    if (amax / amin > 5) return null;
+    const others = cands.filter(p => !set.has(p) && p.a > 0.45 * amin && p.a < 2.2 * amax);
+    const edgeT = (A, B) => {
+      const dx = B.cx - A.cx, dy = B.cy - A.cy, Lg = Math.hypot(dx, dy);
+      let t0 = null, bd = Infinity;
+      for (const p of others) {
+        const t = ((p.cx - A.cx) * dx + (p.cy - A.cy) * dy) / (Lg * Lg), d = Math.abs((p.cx - A.cx) * dy - (p.cy - A.cy) * dx) / Lg;
+        if (t > 0.3 && t < 0.7 && d < 0.035 * Lg && d < bd) { bd = d; t0 = t; }
+      }
+      return t0;
+    };
+    const ts = [0, 1, 2, 3].map(k => edgeT(quad[k], quad[(k + 1) % 4]));
+    let k = -1, bs = 0.14;
+    for (let i = 0; i < 4; i++) { const a = ts[i], b = ts[(i + 2) % 4]; if (a == null || b == null) continue; const sc = Math.abs(a - midT) + Math.abs(b - (1 - midT)); if (sc < bs) { bs = sc; k = i; } }
+    const uncertain = k < 0; if (k < 0) k = 1;
+    const TR = quad[k], BR = quad[(k + 1) % 4], BL = quad[(k + 2) % 4], TL = quad[(k + 3) % 4];
+    return { pts: [TL, TR, BR, BL].map(p => [p.cx, p.cy]), uncertain };
+  }
+  function quadCheck(p, w, h) {
+    const d = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+    const top = d(p[0], p[1]), bot = d(p[3], p[2]), lft = d(p[0], p[3]), rgt = d(p[1], p[2]);
+    const ratio = (lft + rgt) / (top + bot);
+    if (ratio < 0.85 || ratio > 2.0) return 'tilt';
+    if (Math.abs(top - bot) / Math.max(top, bot) > 0.3 || Math.abs(lft - rgt) / Math.max(lft, rgt) > 0.3) return 'tilt';
+    let area = 0; for (let i = 0; i < 4; i++) { const a = p[i], b = p[(i + 1) % 4]; area += a[0] * b[1] - b[0] * a[1]; }
+    if (Math.abs(area) / 2 < 0.12 * w * h) return 'far';
+    return '';
+  }
+  function centers(n) {
+    const out = [];
+    for (let q = 0; q < n; q++) { const c = Math.floor(q / L.perCol), k = q % L.perCol, y = L.y0 + k * L.gap; out.push(L.cols.map(x => [x + c * L.colShift, y])); }
+    return out;
+  }
+  const RING = Array.from({ length: 16 }, (_, k) => [Math.cos(Math.PI * k / 8), Math.sin(Math.PI * k / 8)]);
+  function processFrame(d) {
+    const { w, h, n, sens } = d, px = new Uint8ClampedArray(d.buf), g = new Float32Array(w * h);
+    for (let i = 0, j = 0; i < w * h; i++, j += 4) g[i] = 0.299 * px[j] + 0.587 * px[j + 1] + 0.114 * px[j + 2];
+    const cands = components(darkMask(g, w, h), w, h).filter(c => squareish(c, Math.min(w, h)));
+    const q = orderQuad(cands, L.midT);
+    if (!q) return { ok: false, reason: 'markers' };
+    const why = quadCheck(q.pts, w, h);
+    if (why) return { ok: false, reason: why, pts: q.pts };
+    const H = homography(L.markers, q.pts);
+    const at = (x, y) => {
+      if (x < 0 || y < 0 || x >= w - 1 || y >= h - 1) return 255;
+      const ix = x | 0, iy = y | 0, fx = x - ix, fy = y - iy, i = iy * w + ix;
+      return (g[i] * (1 - fx) + g[i + 1] * fx) * (1 - fy) + (g[i + w] * (1 - fx) + g[i + w + 1] * fx) * fy;
+    };
+    const s = (tx, ty) => { const p = ap(H, tx, ty); return at(p[0], p[1]); };
+    const C = centers(n), r = L.r, flat = C.flat();
+    const a0 = ap(H, flat[0][0], flat[0][1]), a1 = ap(H, flat[0][0] + r, flat[0][1]), rpx = Math.hypot(a1[0] - a0[0], a1[1] - a0[1]);
+    if (rpx < 4.5) return { ok: false, reason: 'far', pts: q.pts };
+    // ضبط موضع الدوائر: إزاحة عامة تجعل حلقات الدوائر الرمادية في مكانها (تعوّض فروق الطباعة)
+    const ringScore = (dx, dy) => { let t = 0; for (const [cx, cy] of flat) for (const [c, si] of RING) t += s(cx + dx + (r + 6) * c, cy + dy + (r + 6) * si) - s(cx + dx + r * c, cy + dy + r * si); return t; };
+    const base = d.shift || [0, 0], span = d.wide ? 14 : 6;
+    let bestV = -Infinity, sx = base[0], sy = base[1];
+    for (let dy = -span; dy <= span; dy += 2) for (let dx = -span; dx <= span; dx += 2) { const v = ringScore(base[0] + dx, base[1] + dy); if (v > bestV) { bestV = v; sx = base[0] + dx; sy = base[1] + dy; } }
+    const outer = [];
+    for (const [cx, cy] of flat) for (let k = 0; k < 16; k += 2) outer.push(s(cx + sx + (r + 9) * RING[k][0], cy + sy + (r + 9) * RING[k][1]));
+    outer.sort((a, b) => a - b);
+    const paper = Math.max(40, outer[Math.floor(outer.length * 0.9)] || 0);
+    if (paper < 70) return { ok: false, reason: 'dark', pts: q.pts };
+    // دقة أعلى: مركز كل دائرة يُضبط محلياً (±3 وحدات) على حلقتها المطبوعة
+    const ringAt = (cx, cy) => { let t = 0; for (let k = 0; k < 16; k += 2) { const [c, si] = RING[k]; t += s(cx + (r + 6) * c, cy + (r + 6) * si) - s(cx + r * c, cy + r * si); } return t; };
+    const tuned = C.map(row => row.map(([cx, cy]) => {
+      let bx = cx + sx, by = cy + sy, bv = ringAt(bx, by);
+      for (let j = -3; j <= 3; j += 1.5) for (let i = -3; i <= 3; i += 1.5) { const v = ringAt(cx + sx + i, cy + sy + j); if (v > bv) { bv = v; bx = cx + sx + i; by = cy + sy + j; } }
+      return [bx, by];
+    }));
+    const ri = r * 0.62, grid = [];
+    for (let j = -4; j <= 4; j++) for (let i = -4; i <= 4; i++) { const ox = i * ri / 4, oy = j * ri / 4; if (ox * ox + oy * oy <= ri * ri) grid.push([ox, oy]); }
+    // الانعكاس الضوئي: الورق الأبيض المشبع طبيعي؛ المشكلة عندما تختفي حلقات الدوائر المطبوعة نفسها
+    let washed = 0;
+    for (const [cx, cy] of flat) {
+      let t = 0; for (const [c, si] of RING) t += Math.max(0, paper - s(cx + sx + r * c, cy + sy + r * si)) / paper;
+      if (t / RING.length < 0.04) washed++;
+    }
+    if (washed / flat.length > 0.25) return { ok: false, reason: 'glare', pts: q.pts };
+    // لون الورق يُقاس حول كل دائرة على حدة، فلا يؤثر ظل اليد أو تدرّج الإضاءة على القراءة
+    const raw = tuned.map(row => row.map(([cx, cy]) => {
+      const around = []; for (let k = 0; k < 16; k++) around.push(s(cx + (r + 9) * RING[k][0], cy + (r + 9) * RING[k][1]));
+      around.sort((a, b) => a - b);
+      const pl = Math.max(40, Math.min(paper * 1.1, around[Math.floor(around.length * 0.8)]));
+      let t = 0; for (const [ox, oy] of grid) t += Math.max(0, pl - s(cx + ox, cy + oy)) / pl;
+      return t / grid.length;
+    }));
+    const sorted = raw.flat().slice().sort((a, b) => a - b), floor = sorted[Math.floor(sorted.length * 0.25)] || 0;
+    const T = sens, Tl = sens * 0.45;
+    const dec = raw.map(row => {
+      const f = row.map(v => Math.max(0, v - floor)), o = [0, 1, 2, 3].sort((a, b) => f[b] - f[a]);
+      const top = f[o[0]], sec = f[o[1]], marked = o.filter(i => f[i] >= T).length;
+      let st, ans = null;
+      if (marked === 1) { st = sec >= Tl && sec > top * 0.5 ? 'unclear' : 'ok'; ans = o[0]; }
+      else if (marked > 1) st = 'multiple';
+      else if (top >= Tl) { st = 'unclear'; ans = o[0]; }
+      else st = 'blank';
+      return { st, ans, f: f.map(v => Math.round(v * 100) / 100) };
+    });
+    const pos = tuned.map(row => row.map(([cx, cy]) => ap(H, cx, cy)));
+    return { ok: true, pts: q.pts, uncertain: q.uncertain, dec, pos, rpx, shift: [sx, sy], paper };
+  }
+  self.onmessage = e => {
+    const d = e.data;
+    if (d.init) { L = d.layout; return; }
+    let res;
+    try { res = processFrame(d); } catch (err) { res = { ok: false, reason: 'error', msg: String(err) }; }
+    res.id = d.id; self.postMessage(res);
+  };
+}
+
+// قالب الورقة المعتمدة (وحدات صورة عرضها 850)
+const CAM_LAYOUT = { markers: [[58, 47], [796, 47], [796, 1000], [58, 1000]], midT: 0.552, cols: [177, 227, 276, 326], y0: 315, gap: 64.4, perCol: 10, colShift: 300, r: 20 };
+const CAM_CAP = 20;
+const CAM_ST = { ok: 'واضحة', unclear: 'غير واضح', multiple: 'أكثر من دائرة', blank: 'فارغ' };
+const CAM_REASON = {
+  markers: 'أظهر المربعات السوداء الأربعة في زوايا الورقة', far: 'قرّب الهاتف من الورقة', tilt: 'اجعل الهاتف موازياً للورقة',
+  moving: 'ثبّت الهاتف', dark: 'الإضاءة ضعيفة — شغّل الفلاش أو اقترب من الضوء', glare: 'انعكاس ضوئي على الورقة — غيّر زاوية الهاتف', error: 'تعذّر تحليل الإطار'
+};
+const CAM_ERR = {
+  'not-allowed': ['لم يُسمح باستخدام الكاميرا', 'اسمح بالكاميرا من رمز القفل بجانب العنوان (أو «aA» في Safari) ثم أعد المحاولة.'],
+  busy: ['الكاميرا مشغولة بتطبيق آخر', 'أغلق تطبيق الكاميرا أو مكالمة الفيديو ثم أعد المحاولة.'],
+  'not-found': ['لا توجد كاميرا متاحة', 'لم يُعثر على كاميرا في هذا الجهاز.'],
+  insecure: ['الصفحة غير آمنة للكاميرا', 'افتح التطبيق من رابط https أو عبر «تشغيل-المصحح.bat» على الحاسوب.'],
+  unsupported: ['المتصفح لا يدعم الكاميرا هنا', 'افتح التطبيق في Chrome أو Safari، وليس داخل تطبيق محادثة.'],
+  error: ['تعذّر تشغيل الكاميرا', 'أعد المحاولة، أو استخدم أحد البديلين أدناه.']
+};
+const CAM_CANCEL = new Set(['الغاء', 'إلغاء', 'الغي', 'cancel', 'stop', 'هەڵوەشاندنەوە'].map(loose));
+const CAM = { on: false, starting: false, stream: null, track: null, send: null, busy: false, w: 0, h: 0, pctx: null, last: null, prevPts: null,
+  shift: [0, 0], shiftN: 0, torch: false, torchOk: false, err: null, photo: null, interval: 66, slow: 0, sentAt: 0, lastSent: 0, frameId: 0, fails: 0 };
+const newCamRead = () => ({ hist: [], prog: 0, locked: null, changed: 0 });
+
+function camInitEngine() {
+  if (CAM.send) return;
+  const fallback = () => {
+    const fake = { postMessage: r => onEngine(r) };
+    camEngine(fake); fake.onmessage({ data: { init: true, layout: CAM_LAYOUT } });
+    CAM.send = d => setTimeout(() => fake.onmessage({ data: d }), 0);
+  };
+  try {
+    const url = URL.createObjectURL(new Blob([`(${camEngine.toString()})(self)`], { type: 'text/javascript' }));
+    const wk = new Worker(url);
+    wk.onmessage = e => onEngine(e.data);
+    wk.onerror = () => { try { wk.terminate(); } catch (e) {} CAM.send = null; CAM.busy = false; fallback(); };
+    wk.postMessage({ init: true, layout: CAM_LAYOUT });
+    CAM.send = (d, tr) => wk.postMessage(d, tr);
+  } catch (e) { fallback(); }
+}
+function showCam(on) {
+  $('#cam').hidden = !on;
+  document.documentElement.style.overflow = on ? 'hidden' : '';
+}
+function camFail(code) {
+  CAM.starting = false; CAM.on = false; CAM.err = code; stopTracks();
+  showCam(true); camFit(); drawOverlay(); updateCamHud();
+}
+function stopTracks() {
+  if (CAM.stream) CAM.stream.getTracks().forEach(t => { try { t.stop(); } catch (e) {} });
+  CAM.stream = null; CAM.track = null; CAM.torch = false; CAM.torchOk = false;
+  const v = $('#cam-video'); if (v) v.srcObject = null;
+}
+async function startCamera() {
+  if (CAM.on || CAM.starting) return;
+  CAM.starting = true; CAM.err = null; CAM.photo = null; CAM.last = null; CAM.prevPts = null;
+  if (!V.cam) V.cam = newCamRead();
+  showCam(true); updateCamHud(); drawOverlay();
+  if (!window.isSecureContext) return camFail('insecure');
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return camFail('unsupported');
+  let stream;
+  try { stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } } }); }
+  catch (e) {
+    return camFail(({ NotAllowedError: 'not-allowed', PermissionDeniedError: 'not-allowed', SecurityError: 'not-allowed', NotFoundError: 'not-found', DevicesNotFoundError: 'not-found',
+      OverconstrainedError: 'not-found', NotReadableError: 'busy', TrackStartError: 'busy', AbortError: 'busy' })[e && e.name] || 'error');
+  }
+  if (!CAM.starting) { stream.getTracks().forEach(t => t.stop()); return; }   // أُلغي أثناء طلب الإذن
+  CAM.stream = stream; CAM.track = stream.getVideoTracks()[0];
+  try {
+    const caps = CAM.track.getCapabilities ? CAM.track.getCapabilities() : {};
+    CAM.torchOk = !!caps.torch;
+    const adv = {}; if (caps.focusMode && caps.focusMode.includes('continuous')) adv.focusMode = 'continuous'; if (caps.exposureMode && caps.exposureMode.includes('continuous')) adv.exposureMode = 'continuous'; if (caps.whiteBalanceMode && caps.whiteBalanceMode.includes('continuous')) adv.whiteBalanceMode = 'continuous'; if (Object.keys(adv).length) CAM.track.applyConstraints({ advanced: [adv] }).catch(() => {});
+  } catch (e) {}
+  const v = $('#cam-video');
+  v.muted = true; v.setAttribute('playsinline', ''); v.srcObject = stream;
+  try { await v.play(); } catch (e) {}
+  if (!v.videoWidth) await new Promise(r => { v.onloadedmetadata = r; setTimeout(r, 2500); });
+  if (!CAM.starting) { stopTracks(); return; }
+  CAM.on = true; CAM.starting = false;
+  camInitEngine(); camFit(); camLoop(); updateCamHud();
+}
+function stopCamera() {
+  CAM.on = false; CAM.starting = false; CAM.busy = false; CAM.err = null; CAM.photo = null; CAM.last = null; CAM.prevPts = null; CAM.await = null; clearTimeout(CAM.autoT);
+  stopTracks(); showCam(false);
+}
+// حجم إطار التحليل (800 للضلع الأطول) وملاءمة الصندوق لمساحة الشاشة
+function camFit() {
+  const v = $('#cam-video'), src = CAM.photo || v;
+  const vw = CAM.photo ? src.width : v.videoWidth, vh = CAM.photo ? src.height : v.videoHeight;
+  const stage = $('#cam-stage').getBoundingClientRect(), box = $('#cam-box'), ov = $('#cam-ov');
+  if (!vw || !vh) { box.style.width = Math.min(stage.width, stage.height / 1.29) + 'px'; box.style.height = Math.min(stage.height, stage.width * 1.29) + 'px'; ov.width = 400; ov.height = 516; return; }
+  const k = Math.min(1, 960 / Math.max(vw, vh));
+  CAM.w = Math.round(vw * k); CAM.h = Math.round(vh * k);
+  if (!CAM.pctx || CAM.pctx.canvas.width !== CAM.w || CAM.pctx.canvas.height !== CAM.h) {
+    const c = document.createElement('canvas'); c.width = CAM.w; c.height = CAM.h; CAM.pctx = c.getContext('2d', { willReadFrequently: true });
+  }
+  ov.width = CAM.w; ov.height = CAM.h;
+  const fit = Math.min(stage.width / vw, stage.height / vh);
+  box.style.width = Math.floor(vw * fit) + 'px'; box.style.height = Math.floor(vh * fit) + 'px';
+}
+function camLoop() {
+  const v = $('#cam-video');
+  const tick = () => { if (!CAM.on) return; camPump(); drawOverlay(); next(); };
+  const next = () => { if (!CAM.on) return; if (v.requestVideoFrameCallback) v.requestVideoFrameCallback(tick); else requestAnimationFrame(tick); };
+  next();
+}
+function camSendFrame(wide) {
+  const img = CAM.pctx.getImageData(0, 0, CAM.w, CAM.h);
+  CAM.busy = true; CAM.sentAt = performance.now();
+  CAM.send({ id: ++CAM.frameId, w: CAM.w, h: CAM.h, buf: img.data.buffer, n: Math.min(keyN(), CAM_CAP), sens: S.settings.camSens || 0.3, shift: CAM.shift, wide: wide || CAM.shiftN < 5 }, [img.data.buffer]);
+}
+// إطار جديد يُرسل فقط بعد عودة نتيجة السابق (لا طابور متراكم)
+function camPump() {
+  if (CAM.busy || CAM.photo || !CAM.send) return;
+  const now = performance.now(), v = $('#cam-video');
+  if (now - CAM.lastSent < CAM.interval || !v.videoWidth) return;
+  if (Math.round(v.videoWidth * Math.min(1, 960 / Math.max(v.videoWidth, v.videoHeight))) !== CAM.w) camFit();
+  CAM.lastSent = now;
+  CAM.pctx.drawImage(v, 0, 0, CAM.w, CAM.h);
+  camSendFrame(false);
+}
+function onEngine(r) {
+  CAM.busy = false;
+  const dt = performance.now() - CAM.sentAt;
+  CAM.slow = dt > 50 ? CAM.slow + 1 : 0;
+  if (CAM.slow >= 3) CAM.interval = 125;   // هاتف بطيء: 8 إطارات محلَّلة في الثانية
+  if (!CAM.on && !CAM.photo) return;
+  if (r.ok && !CAM.photo && CAM.prevPts) {
+    const width = Math.hypot(r.pts[1][0] - r.pts[0][0], r.pts[1][1] - r.pts[0][1]);
+    const mv = Math.max(...r.pts.map((p, i) => Math.hypot(p[0] - CAM.prevPts[i][0], p[1] - CAM.prevPts[i][1])));
+    CAM.prevPts = r.pts;
+    if (mv > 0.025 * width) r = { ok: false, reason: 'moving', pts: r.pts, pos: r.pos, rpx: r.rpx };
+  } else if (r.pts) CAM.prevPts = r.pts;
+  if (r.ok) {
+    CAM.shift = CAM.shiftN < 5 ? r.shift : [CAM.shift[0] * 0.7 + r.shift[0] * 0.3, CAM.shift[1] * 0.7 + r.shift[1] * 0.3];
+    CAM.shiftN++;
+  }
+  CAM.last = r;
+  camStabilize(r);
+  if (CAM.photo) drawOverlay();
+  updateCamHud();
+}
+// التثبيت: تُعتمد القراءة عندما تتطابق 6 من آخر 8 إطارات صالحة؛ وبعدها تُجمَّد
+function camStabilize(r) {
+  if (!V.cam) V.cam = newCamRead();
+  const C = V.cam;
+  // بعد الحفظ: لا تُقرأ ورقة الطالب السابق للطالب التالي؛ ننتظر رفعها أو تبدّل قراءتها
+  if (CAM.await) {
+    if (!r.ok && r.reason === 'markers') { CAM.await = null; return; }
+    if (!r.ok) return;
+    const s0 = r.dec.map(d => d.st === 'ok' ? 'o' + d.ans : d.st[0] + (d.ans ?? '')).join(',');
+    CAM.await.diff = s0 !== CAM.await.sig ? CAM.await.diff + 1 : 0;
+    if (CAM.await.diff < 3) return;
+    CAM.await = null;
+  }
+  if (!r.ok) return;
+  const sig = r.dec.map(d => d.st === 'ok' ? 'o' + d.ans : d.st[0] + (d.ans ?? '')).join(',');
+  C.hist.push(sig); if (C.hist.length > 8) C.hist.shift();
+  const cnt = C.hist.filter(x => x === sig).length;
+  if (!C.locked) { C.prog = cnt; if (cnt >= 6 || CAM.photo) camLock(r, sig); }
+  else C.changed = sig !== C.locked.sig ? C.changed + 1 : 0;
+}
+function camLock(r, sig) {
+  V.cam.locked = { sig, dec: r.dec.map(d => ({ st: d.st, ans: d.ans, f: d.f })) };
+  V.cam.prog = 6;
+  const flagged = r.dec.map((d, q) => d.st !== 'ok' && !(q in V.manual) ? q + 1 : 0).filter(Boolean);
+  try { navigator.vibrate && navigator.vibrate(flagged.length ? [120, 80, 120] : 60); } catch (e) {}
+  if (flagged.length) { alarm(); speak(`راجع السؤال ${flagged.join(' و ')}`); }
+  else { okTone(); const s = currentScore(); if (s != null) speak(`${fmt(s)} من ${fmt(maxScore())}`); }
+  keepFocus(renderVoice); updateCamHud();
+  camMaybeAuto();
+}
+// الحفظ التلقائي: عند تثبيت قراءة كاملة بلا أسئلة ملتبسة تُحفظ الدرجة وينتقل التطبيق للطالب التالي
+function camMaybeAuto() {
+  if (S.settings.camSave !== 'auto' || !V.cam || !V.cam.locked || issues().length) return;
+  const stamp = V.cam.locked, manual = JSON.stringify(V.manual);
+  clearTimeout(CAM.autoT);
+  CAM.autoT = setTimeout(() => {
+    if (V.cam && V.cam.locked === stamp && JSON.stringify(V.manual) === manual && V.phase === 'camera' && !issues().length) trySave(true);
+  }, 1100);
+  updateCamHud();
+}
+function camRedo() {
+  V.cam = newCamRead(); V.manual = {};
+  if (CAM.photo) { CAM.photo = null; CAM.last = null; startCamera(); }
+  updateCamHud(); keepFocus(renderVoice);
+}
+function camCancel() {
+  V = Object.assign(newV(), { noAuto: true }); stopCamera(); setPhase('name');
+}
+async function camTorch() {
+  if (!CAM.track || !CAM.torchOk) return;
+  CAM.torch = !CAM.torch;
+  try { await CAM.track.applyConstraints({ advanced: [{ torch: CAM.torch }] }); } catch (e) { CAM.torch = false; }
+  updateCamHud();
+}
+// بديل عند تعذّر البث: صورة واحدة من تطبيق الكاميرا تُحلَّل بالمحرك نفسه
+async function camPhoto(file) {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
+    const k = Math.min(1, 1000 / Math.max(img.naturalWidth, img.naturalHeight));
+    const c = document.createElement('canvas'); c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+    stopTracks(); CAM.on = false; CAM.err = null; CAM.photo = c; CAM.last = null; CAM.prevPts = null;
+    V.cam = newCamRead(); V.manual = {};
+    showCam(true); camInitEngine(); camFit();
+    CAM.w = c.width; CAM.h = c.height; CAM.pctx = c.getContext('2d', { willReadFrequently: true });
+    $('#cam-ov').width = c.width; $('#cam-ov').height = c.height;
+    drawOverlay(); camSendFrame(true); updateCamHud();
+  } catch (e) { toast('تعذّر فتح الصورة'); }
+  finally { URL.revokeObjectURL(url); }
+}
+// يطابق حالة الكاميرا مع المرحلة: تُفتح لطالب مؤكد في وضع «كاميرا»، وتُغلق في غير ذلك
+function syncCamera() {
+  const want = step === 'voice' && S.settings.mode === 'camera' && V.phase === 'camera' && V.row != null;
+  if (want) { if (!CAM.on && !CAM.starting && !CAM.photo && !CAM.err) startCamera(); else if (CAM.on || CAM.photo || CAM.err) updateCamHud(); }
+  else if (CAM.on || CAM.starting || CAM.photo || CAM.err) stopCamera();
+}
+function drawOverlay() {
+  const c = $('#cam-ov'); if (!c || !c.width) return;
+  const x = c.getContext('2d'), W = c.width, H = c.height, lw = Math.max(2, W / 260);
+  x.clearRect(0, 0, W, H);
+  if (CAM.photo) x.drawImage(CAM.photo, 0, 0, W, H);
+  const r = CAM.last, lk = V.cam && V.cam.locked, key = K().answers;
+  if (!r || !r.pts) {   // إطار إرشادي بنسبة الورقة
+    const gh = H * 0.86, gw = Math.min(W * 0.86, gh / 1.29), gx = (W - gw) / 2, gy = (H - gw * 1.29) / 2, t = gw * 0.12;
+    x.strokeStyle = 'rgba(255,255,255,.85)'; x.lineWidth = lw * 1.5;
+    [[gx, gy, 1, 1], [gx + gw, gy, -1, 1], [gx + gw, gy + gw * 1.29, -1, -1], [gx, gy + gw * 1.29, 1, -1]].forEach(([px, py, sx, sy]) => {
+      x.beginPath(); x.moveTo(px + sx * t, py); x.lineTo(px, py); x.lineTo(px, py + sy * t); x.stroke();
+    });
+    return;
+  }
+  const good = r.ok ? '#2ecc71' : '#f5a623';
+  x.strokeStyle = good; x.lineWidth = lw; x.setLineDash([]);
+  x.beginPath(); r.pts.forEach((p, i) => i ? x.lineTo(p[0], p[1]) : x.moveTo(p[0], p[1])); x.closePath(); x.stroke();
+  x.fillStyle = good; r.pts.forEach(p => { x.beginPath(); x.arc(p[0], p[1], lw * 3, 0, 7); x.fill(); });
+  if (!r.pos) return;
+  const decs = lk ? lk.dec : r.dec; if (!decs) return;
+  const rad = (r.rpx || 8) + lw * 1.5;
+  r.pos.forEach((row, q) => {
+    const d = decs[q]; if (!d) return;
+    const man = q in V.manual, ans = man ? V.manual[q] : (d.st === 'ok' ? d.ans : null), flag = !man && d.st !== 'ok';
+    if (flag) {
+      const xs = row.map(p => p[0]), ys = row.map(p => p[1]);
+      x.strokeStyle = '#f5a623'; x.lineWidth = lw; x.setLineDash([lw * 3, lw * 2]);
+      x.strokeRect(Math.min(...xs) - rad * 1.4, Math.min(...ys) - rad * 1.4, Math.max(...xs) - Math.min(...xs) + rad * 2.8, Math.max(...ys) - Math.min(...ys) + rad * 2.8);
+      x.setLineDash([]);
+    }
+    row.forEach(([px, py], o) => {
+      if (ans === o && ans >= 0) {
+        x.strokeStyle = key[q] == null ? '#4a90e2' : ans === key[q] ? '#2ecc71' : '#e74c3c'; x.lineWidth = lw * 1.6;
+        x.beginPath(); x.arc(px, py, rad, 0, 7); x.stroke();
+      } else if (flag && d.ans === o) {
+        x.strokeStyle = '#f5a623'; x.lineWidth = lw * 1.4; x.beginPath(); x.arc(px, py, rad, 0, 7); x.stroke();
+      }
+      if (key[q] === o && ans != null && ans >= 0 && ans !== o) {
+        x.strokeStyle = '#2ecc71'; x.lineWidth = lw; x.setLineDash([lw * 2, lw * 2]); x.beginPath(); x.arc(px, py, rad, 0, 7); x.stroke(); x.setLineDash([]);
+      }
+    });
+  });
+}
+function liveCamScore() {
+  const r = CAM.last; if (!keyComplete()) return null;
+  if (V.cam && V.cam.locked) return currentScore();
+  if (!r || !r.dec) return null;
+  return scoreAnswers(Array.from({ length: keyN() }, (_, q) => q in V.manual ? V.manual[q] : (r.dec[q] && r.dec[q].st === 'ok' ? r.dec[q].ans : null)));
+}
+function updateCamHud() {
+  if ($('#cam').hidden) return;
+  const g = G(), r = CAM.last, C = V.cam || newCamRead(), lk = C.locked;
+  $('#cam-name').textContent = V.row === 'extra' ? V.heard : V.row != null ? studentName(V.row) : '—';
+  $('#cam-row').textContent = (typeof V.row === 'number' && g ? `صف ${rowNo(V.row)} · ${gLabel(g)} · ${curExam(g.cls).name}` : '') + (S.settings.camSave === 'auto' ? ' · حفظ تلقائي' : ' · حفظ يدوي');
+  if (lk && S.settings.camSave === 'auto' && !issues().length) $('#cam-status').dataset.auto = '1';
+  const sc = liveCamScore(), sEl = $('#cam-score');
+  sEl.textContent = sc == null ? '—' : `${fmt(sc)} / ${fmt(maxScore())}`;
+  sEl.className = 'cam-score ' + (lk && !issues().length ? 'done' : 'tent');
+  let status = '';
+  if (CAM.err) status = '';
+  else if (CAM.starting) status = 'جارٍ فتح الكاميرا…';
+  else if (CAM.await && !lk) status = 'حُفظت — ضع ورقة الطالب التالي أمام الكاميرا';
+  else if (!r) status = CAM.photo ? 'جارٍ تحليل الصورة…' : 'وجّه الكاميرا نحو الورقة';
+  else if (!r.ok) status = CAM_REASON[r.reason] || 'تعذّرت القراءة';
+  else if (!lk) status = 'جارٍ تثبيت القراءة… ثبّت الهاتف';
+  else {
+    const fl = lk.dec.map((d, q) => d.st !== 'ok' && !(q in V.manual) ? q : -1).filter(q => q >= 0);
+    status = fl.length ? 'راجع: ' + fl.map(q => `س${q + 1} (${CAM_ST[lk.dec[q].st]})`).join('، ') : S.settings.camSave === 'auto' ? 'ثُبّتت القراءة — تُحفظ تلقائياً…' : 'ثُبّتت القراءة — قل «احفظ» أو اضغط حفظ';
+  }
+  if (lk && C.changed >= 6) status = 'الورقة أمام الكاميرا تغيّرت — قل «أعد» لقراءتها من جديد';
+  $('#cam-status').textContent = status;
+  $('#cam-dots').innerHTML = CAM.err ? '' : Array.from({ length: 6 }, (_, i) => `<i class="${i < Math.min(6, C.prog || 0) ? 'on' : ''}"></i>`).join('');
+  let fix = '';
+  if (CAM.err) {
+    const [t, b] = CAM_ERR[CAM.err] || CAM_ERR.error;
+    fix = `<div class="cam-err" role="alert"><b>${esc(t)}</b><span>${esc(b)}</span>
+      <div class="cam-btns"><button class="btn" data-act="cam-retry">إعادة المحاولة</button><button class="btn" data-act="pick" data-target="in-cam-photo">التقاط صورة بدلاً من ذلك</button><button class="btn" data-act="cam-voice">قراءة الإجابات بالصوت</button></div></div>`;
+  } else if (lk) {
+    const rows = [];
+    lk.dec.forEach((d, q) => {
+      if (d.st === 'ok' && !(q in V.manual)) return;
+      const a = q in V.manual ? V.manual[q] : null;
+      rows.push(`<div class="frow"><span class="mono">س${q + 1}</span>${optLabels().map((o, i) => `<button class="bub" aria-pressed="${a === i}" data-act="cam-fix" data-q="${q}" data-o="${i}">${o}</button>`).join('')}<button class="bub blank" aria-pressed="${a === -1}" data-act="cam-fix" data-q="${q}" data-o="-1">بلا</button></div>`);
+    });
+    for (let q = lk.dec.length; q < keyN(); q++) { const a = q in V.manual ? V.manual[q] : null; rows.push(`<div class="frow"><span class="mono">س${q + 1}</span>${optLabels().map((o, i) => `<button class="bub" aria-pressed="${a === i}" data-act="cam-fix" data-q="${q}" data-o="${i}">${o}</button>`).join('')}<button class="bub blank" aria-pressed="${a === -1}" data-act="cam-fix" data-q="${q}" data-o="-1">بلا</button></div>`); }
+    fix = rows.join('');
+  } else if (CAM.photo && r && !r.ok) {
+    fix = `<div class="cam-btns"><button class="btn" data-act="pick" data-target="in-cam-photo">التقاط صورة أخرى</button></div>`;
+  }
+  $('#cam-fix').innerHTML = fix;
+  $('#cam-save').disabled = !!issues().length;
+  $('#cam-torch').hidden = !CAM.torchOk;
+  $('#cam-torch').setAttribute('aria-pressed', String(CAM.torch));
+  const mic = $('#cam-mic'); mic.setAttribute('aria-pressed', String(session.on)); mic.textContent = session.on ? 'الميكروفون يستمع' : 'تشغيل الميكروفون';
+}
+addEventListener('resize', () => { if (!$('#cam').hidden) { camFit(); drawOverlay(); } });
+
+/* ---------- ٣: النتائج ---------- */
+let rQuery = '', rFilter = 'all';
+function renderResults() {
+  const el = $('#step-results'), g = G();
+  if (!g) { el.innerHTML = `<div class="card empty">لا توجد شعب بعد. <button class="btn primary" data-act="go" data-step="setup">الإعداد</button></div>`; return; }
+  const sts = students(g), q = nameKey(rQuery);
+  let list = sts.map(s => ({ ...s, res: RES(g)[s.row] }));
+  if (q) list = list.filter(s => nameKey(s.name).includes(q));
+  if (rFilter === 'done') list = list.filter(s => s.res); else if (rFilter === 'todo') list = list.filter(s => !s.res);
+  const doneN = Object.keys(RES(g)).length;
+  el.innerHTML = `<div class="card">
+    <div class="active-bar">${groupSelect('r-group')}${examSelect('r-exam')}<button class="btn primary" data-act="go" data-step="voice">${MIC}متابعة التصحيح</button></div>
+    <p class="muted small">${g.fid ? `صُحّح <span class="num">${doneN}</span> من <span class="num">${sts.length}</span> طالباً` : 'شعبة بدون ملف أسماء'}${EXT(g).length && g.fid ? ` · <span class="num">${EXT(g).length}</span> غير مطابقة` : ''}</p>
+    ${g.fid ? `<div class="toolbar"><input type="search" id="r-q" placeholder="ابحث بالاسم" value="${esc(rQuery)}">
+      <select id="r-filter"><option value="all" ${rFilter === 'all' ? 'selected' : ''}>كل الطلبة</option><option value="done" ${rFilter === 'done' ? 'selected' : ''}>المصحَّحون</option><option value="todo" ${rFilter === 'todo' ? 'selected' : ''}>لم يُصحَّحوا بعد</option></select></div>
+    <div class="tablewrap"><table><thead><tr><th>الصف</th><th>اسم الطالب</th><th>الدرجة</th><th>الإجابات</th><th></th></tr></thead><tbody>
+      ${list.map(s => `<tr class="${s.res ? 'done' : ''}${s.res && s.res.score < passMark(curExam(g.cls)) ? ' fail' : ''}"><td class="num">${rowNo(s.row, g)}</td><td>${esc(s.name)}</td>
+        <td><input type="number" class="r-score" id="rs-${s.row}" data-row="${s.row}" step="0.25" min="0" value="${s.res ? s.res.score : ''}" aria-label="درجة ${esc(s.name)}"></td>
+        <td class="mono small">${s.res && s.res.answers ? s.res.answers.map(a => a == null || a < 0 ? '–' : optLabels()[a]).join(' ') : ''}</td>
+        <td>${s.res ? `<button class="btn sm danger" data-act="r-clear" data-row="${s.row}">حذف الدرجة</button>` : ''}</td></tr>`).join('')}
+    </tbody></table></div>` : ''}
+    ${EXT(g).length ? `<h3>${g.fid ? 'غير موجودين في ملف الأسماء' : 'الدرجات المحفوظة'}</h3><div class="tablewrap"><table><thead><tr><th>الاسم</th><th>الدرجة</th><th></th></tr></thead><tbody>
+      ${EXT(g).map((x, i) => `<tr><td>${esc(x.name)}</td><td class="num">${fmt(x.score)}</td><td class="row" style="flex-wrap:nowrap">${g.fid ? `<select id="x-link-${i}" data-i="${i}" class="x-link" aria-label="ربط بطالب"><option value="">ربط بطالب في الملف…</option>${sts.filter(s => !RES(g)[s.row]).map(s => `<option value="${s.row}">${esc(s.name)}</option>`).join('')}</select>` : ''}<button class="btn sm danger" data-act="x-del" data-i="${i}">حذف</button></td></tr>`).join('')}
+    </tbody></table></div>` : ''}
+    ${!g.fid && !EXT(g).length ? '<div class="empty">لا توجد درجات بعد.</div>' : ''}
+  </div>`;
+}
+
+/* ---------- ٤: التصدير ---------- */
+/* ---------- الطباعة: نتائج شعبة أو صف كامل على ورق A4 ---------- */
+const PR = { cls: null, scope: 'section', gid: null, exams: null, sort: 'name' };
+function prState() {
+  const cls = classes();
+  if (!PR.cls || !cls.includes(PR.cls)) { PR.cls = G() ? G().cls : cls[0]; PR.exams = null; PR.gid = null; }
+  const secs = S.groups.filter(g => g.cls === PR.cls);
+  if (!PR.gid || !secs.some(g => g.id === PR.gid)) PR.gid = (G() && G().cls === PR.cls ? G() : secs[0])?.id || null;
+  const ex = examsOf(PR.cls);
+  if (!PR.exams) PR.exams = new Set([curExam(PR.cls).id]);
+  PR.exams = new Set([...PR.exams].filter(id => ex.some(e => e.id === id)));
+  return { secs, ex };
+}
+function printCardHtml() {
+  if (!S.groups.length) return '';
+  const { secs, ex } = prState();
+  return `<div class="card print-card">
+    <div class="card-head"><div><h2>طباعة النتائج</h2><p class="muted small">ورقة A4 لكل شعبة، باسم الصف والشعبة في أعلاها، والأسماء مرتبة، والراسب مظلَّل بلون خفيف.</p></div></div>
+    <div class="grid2">
+      <label class="field">الصف<select id="pr-cls">${classes().map(c => `<option ${c === PR.cls ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select></label>
+      <label class="field">ما يُطبع<select id="pr-scope"><option value="section" ${PR.scope === 'section' ? 'selected' : ''}>شعبة واحدة</option><option value="class" ${PR.scope === 'class' ? 'selected' : ''}>الصف كاملاً (${secs.length} ${secs.length === 1 ? 'شعبة' : 'شعب'})</option></select></label>
+      ${PR.scope === 'section' ? `<label class="field">الشعبة<select id="pr-sec">${secs.map(g => `<option value="${g.id}" ${g.id === PR.gid ? 'selected' : ''}>شعبة ${esc(g.sec)}</option>`).join('')}</select></label>` : ''}
+      <label class="field">ترتيب الأسماء<select id="pr-sort"><option value="name" ${PR.sort === 'name' ? 'selected' : ''}>أبجدياً</option><option value="score" ${PR.sort === 'score' ? 'selected' : ''}>حسب الدرجة (الأعلى أولاً)</option><option value="file" ${PR.sort === 'file' ? 'selected' : ''}>كما في ملف Excel</option></select></label>
+    </div>
+    <div class="field small muted">الامتحانات المطبوعة (اختر واحداً أو أكثر)</div>
+    <div class="chips-pick">${ex.map(e => `<label class="pick"><input type="checkbox" class="pr-exam" value="${e.id}" ${PR.exams.has(e.id) ? 'checked' : ''}><span>${esc(e.name)}</span></label>`).join('')}</div>
+    <div class="row">
+      <button class="btn primary big" data-act="print-go" ${PR.exams.size ? '' : 'disabled'}>طباعة</button>
+      <button class="btn" data-act="print-preview" ${PR.exams.size ? '' : 'disabled'}>معاينة</button>
+      <button class="btn" data-act="print-dl" ${PR.exams.size ? '' : 'disabled'}>تنزيل صفحة الطباعة</button>
+    </div>
+    <p class="small muted">إن لم تفتح نافذة الطباعة (في الرابط المنشور مثلاً)، نزّل صفحة الطباعة وافتحها في المتصفح ثم اطبعها أو احفظها PDF.</p>
+  </div>`;
+}
+// صفوف الطباعة لشعبة: كل طلبة الملف + من صُحّح خارج الملف، مع درجات الامتحانات المختارة
+function printRows(g, exams) {
+  const rows = students(g).map((s, i) => ({ name: s.name, order: i, sc: exams.map(e => RES(g, e.id)[s.row]?.score) }));
+  const extra = new Map();
+  exams.forEach((e, k) => EXT(g, e.id).forEach(x => { const r = extra.get(x.name) || { name: x.name, order: 1e6 + extra.size, sc: exams.map(() => undefined) }; r.sc[k] = x.score; extra.set(x.name, r); }));
+  const all = rows.concat([...extra.values()]);
+  if (PR.sort === 'name') all.sort((a, b) => a.name.localeCompare(b.name, 'ar'));
+  else if (PR.sort === 'score') all.sort((a, b) => (b.sc[0] ?? -1) - (a.sc[0] ?? -1) || a.name.localeCompare(b.name, 'ar'));
+  else all.sort((a, b) => a.order - b.order);
+  return all;
+}
+const PRINT_CSS = `
+@page{size:A4;margin:12mm 12mm 14mm}
+.pg{font-family:"Noto Sans Arabic","Segoe UI",Tahoma,sans-serif;color:#13262c;direction:rtl;page-break-after:always;break-after:page;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.pg:last-child{page-break-after:auto;break-after:auto}
+.pg-band{display:flex;justify-content:space-between;align-items:center;background:#0B5D66;color:#fff;border-radius:10px;padding:10px 16px;font-size:11pt}
+.pg-band b{font-weight:700;letter-spacing:.02em}
+.pg-title{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;margin:14px 2px 6px;border-bottom:3px solid #F2A93B;padding-bottom:8px}
+.pg-title h1{font-family:"Amiri","Noto Naskh Arabic",serif;font-size:26pt;margin:0;line-height:1.1;color:#0B4D55}
+.pg-title .pg-sec{font-size:15pt;font-weight:700;color:#13262c}
+.pg-meta{font-size:9.5pt;color:#4f6369;text-align:left}
+.pg-exams{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 10px}
+.pg-exams span{border:1px solid #cfe0e0;background:#f2f8f8;border-radius:999px;padding:2px 10px;font-size:9pt}
+table.pt{width:100%;border-collapse:collapse;font-size:11pt}
+table.pt thead{display:table-header-group}
+table.pt th{background:#E2F0EF;color:#0B4D55;font-weight:700;padding:7px 6px;border:1px solid #c5d9d9;text-align:center}
+table.pt td{padding:6px;border:1px solid #d6e2e2;text-align:center;font-variant-numeric:tabular-nums}
+table.pt td.nm{text-align:right;font-weight:600}
+table.pt td.ix{color:#6a7d82;width:34px}
+table.pt tr{break-inside:avoid}
+table.pt tbody tr:nth-child(even) td{background:#f8fbfb}
+table.pt td.fail{background:#FDE3E1!important;color:#9B2C22;font-weight:700}
+table.pt td.none{color:#a2b1b4}
+.pg-sum{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:6px;margin-top:10px;font-size:9.5pt}
+.pg-sum div{border:1px solid #d6e2e2;border-radius:8px;padding:6px 10px;break-inside:avoid}
+.pg-sum b{color:#0B4D55}
+.pg-foot{margin-top:10px;display:flex;justify-content:space-between;font-size:9pt;color:#6a7d82}
+.pg-key{display:inline-block;width:12px;height:12px;background:#FDE3E1;border:1px solid #e6b3ae;vertical-align:-2px;margin-inline-end:4px}`;
+function buildPrintPages() {
+  const { secs, ex } = prState();
+  const exams = ex.filter(e => PR.exams.has(e.id));
+  const groups = PR.scope === 'class' ? secs.slice().sort((a, b) => a.sec.localeCompare(b.sec, 'ar')) : secs.filter(g => g.id === PR.gid);
+  const date = new Intl.DateTimeFormat('ar-u-nu-latn', { dateStyle: 'long' }).format(new Date());
+  return groups.map(g => {
+    const rows = printRows(g, exams);
+    const sum = exams.map((e, k) => {
+      const v = rows.map(r => r.sc[k]).filter(x => x != null), pass = passMark(e);
+      const ok = v.filter(x => x >= pass).length, avg = v.length ? v.reduce((a, b) => a + b, 0) / v.length : 0;
+      return `<div><b>${esc(e.name)}</b><br>صُحّح ${v.length} من ${rows.length} · ناجح ${ok} · راسب ${v.length - ok}${v.length ? ` · المعدل ${fmt(avg)} من ${fmt(examMax(e))}` : ''}</div>`;
+    }).join('');
+    return `<section class="pg">
+      <div class="pg-band"><b>المصحح الصوتي</b><span>نتائج الامتحانات</span></div>
+      <div class="pg-title"><div><h1>${esc(g.cls)}</h1><div class="pg-sec">شعبة ${esc(g.sec)}</div></div><div class="pg-meta">${esc(date)}<br>عدد الطلبة: ${rows.length}</div></div>
+      <div class="pg-exams">${exams.map(e => `<span>${esc(e.name)} · من ${fmt(examMax(e))} · النجاح ${fmt(passMark(e))}</span>`).join('')}</div>
+      <table class="pt"><thead><tr><th>ت</th><th style="text-align:right">اسم الطالب</th>${exams.map(e => `<th>${esc(e.name)}</th>`).join('')}</tr></thead><tbody>
+        ${rows.map((r, i) => `<tr><td class="ix">${i + 1}</td><td class="nm">${esc(r.name)}</td>${r.sc.map((v, k) => v == null ? '<td class="none">—</td>' : `<td class="${v < passMark(exams[k]) ? 'fail' : ''}">${fmt(v)}</td>`).join('')}</tr>`).join('')}
+      </tbody></table>
+      <div class="pg-sum">${sum}</div>
+      <div class="pg-foot"><span><i class="pg-key"></i>درجة أقل من درجة النجاح</span><span>توقيع المدرّس: ............................</span></div>
+    </section>`;
+  }).join('');
+}
+function doPrint() {
+  const root = $('#print-root');
+  root.innerHTML = `<style>${PRINT_CSS}</style>${buildPrintPages()}`;
+  setTimeout(() => { try { window.print(); } catch (e) { toast('تعذّر فتح نافذة الطباعة؛ نزّل صفحة الطباعة'); } }, 60);
+}
+function printDownload() {
+  const g = S.groups.find(x => x.id === PR.gid);
+  const name = `نتائج-${PR.cls}${PR.scope === 'section' && g ? '-شعبة-' + g.sec : ''}-${today()}.html`.replace(/[\\/:*?"<>|]/g, '_');
+  const html = `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>${esc(name)}</title><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Amiri:wght@700&family=Noto+Sans+Arabic:wght@400;600;700&display=swap"><style>body{margin:0;background:#e9eeee}@media screen{.pg{background:#fff;width:210mm;min-height:297mm;margin:12px auto;padding:12mm;box-shadow:0 2px 12px rgba(0,0,0,.12);box-sizing:border-box}}${PRINT_CSS}</style></head><body onload="setTimeout(function(){window.print()},400)">${buildPrintPages()}</body></html>`;
+  saveFile(name, new Blob([html], { type: 'text/html' }));
+}
+function printPreview() {
+  modal({ title: 'معاينة الطباعة', body: `<div class="print-preview"><style>${PRINT_CSS}</style>${buildPrintPages()}</div>`, actions: [{ label: 'طباعة', kind: 'primary', onClick: () => doPrint() }, { label: 'إغلاق' }] });
+}
+function renderExport() {
+  const el = $('#step-export');
+  const fids = Object.keys(S.files).filter(fid => S.groups.some(g => g.fid === fid));
+  const nofile = S.groups.filter(g => !g.fid);
+  const allCount = g => examsOf(g.cls).reduce((n, ex) => n + Object.keys(RES(g, ex.id)).length + EXT(g, ex.id).length, 0);
+  el.innerHTML = `
+    ${printCardHtml()}
+    <div class="card">
+      <div><h2>تصدير Excel</h2><p class="muted small">يُنزَّل كل ملف رفعته نفسه، وتُكتب الدرجة النهائية لكل امتحان في عموده أمام اسم كل طالب، في وسط الخلية، مع تظليل خفيف للراسب. لا يتغيّر شيء آخر في الملف.</p></div>
+      ${!fids.length && !nofile.length ? '<div class="empty">لا توجد صفوف بعد.</div>' : ''}
+      ${fids.map(fid => {
+        const gs = S.groups.filter(g => g.fid === fid), ex = [...new Set(gs.flatMap(g => examsOf(g.cls).map(e => e.name)))];
+        const done = gs.reduce((n, g) => n + allCount(g), 0);
+        return `<div class="sheetopt"><div class="card-head"><div><b>${esc(S.files[fid].name)}</b><div class="small muted">${gs.map(g => esc(gLabel(g))).join(' · ')}</div>
+          <div class="small">الامتحانات: ${ex.map(esc).join('، ')} · <span class="num">${done}</span> درجة محفوظة</div></div>
+          <button class="btn primary" data-act="export-file" data-fid="${fid}" ${done ? '' : 'disabled'}>تحميل Excel</button></div></div>`;
+      }).join('')}
+      ${nofile.map(g => `<div class="sheetopt"><div class="card-head"><div><b>${esc(gLabel(g))}</b><div class="small muted">بدون ملف أسماء · <span class="num">${allCount(g)}</span> درجة</div></div>
+        <button class="btn primary" data-act="export-nofile" data-id="${g.id}" ${allCount(g) ? '' : 'disabled'}>تحميل Excel</button></div></div>`).join('')}
+    </div>
+    <div class="card">
+      <h2>الحفظ والنسخ الاحتياطي</h2>
+      <p class="small muted">نسخة واحدة تشمل كل الصفوف والشعب والامتحانات والدرجات.</p>
+      <div class="notice info">تُحفظ الصفوف والشعب والمفاتيح والدرجات في ذاكرة المتصفح (localStorage) على هذا الجهاز فقط. مسح بيانات المتصفح أو حذف التطبيق يحذفها؛ لذلك نزّل نسخة احتياطية بين حين وآخر.</div>
+      <div class="row small">${persisted === true ? '<span class="tag ok">التخزين الدائم مفعّل — لن يحذف المتصفح البيانات تلقائياً</span>' : persisted === false ? '<span class="tag warn">التخزين غير دائم — قد يحذف المتصفح البيانات عند امتلاء الذاكرة</span> <button class="btn sm" data-act="persist">طلب تخزين دائم</button>' : ''}
+        ${storageSize() ? `<span class="muted">المستخدم: <span class="num">${storageUse}</span> كيلوبايت من نحو 5000</span>` : ''}</div>
+      ${IS_IOS && PWA_CTX ? '<p class="small muted">على آيفون: التطبيق المثبّت على الشاشة الرئيسية له ذاكرة منفصلة عن Safari. انقل بياناتك بينهما بالنسخة الاحتياطية.</p>' : ''}
+      <div class="row"><button class="btn" data-act="backup">تنزيل نسخة احتياطية</button><button class="btn" data-act="pick" data-target="in-backup">استعادة من نسخة</button>
+        <button class="btn danger" data-act="clear-scores">مسح الدرجات فقط</button><button class="btn danger" data-act="wipe">مسح كل البيانات</button></div>
+    </div>`;
+}
+
+/* ---------- الأحداث ---------- */
+const ACT = {
+  go: b => go(b.dataset.step),
+  pick: b => { const i = document.getElementById(b.dataset.target); i.value = ''; i.click(); },
+  'add-empty': () => addEmptyGroup(),
+  'set-active': b => switchGroup(b.dataset.id),
+  rename: b => renameGroup(b.dataset.id),
+  'del-group': b => deleteGroup(b.dataset.id),
+  'n-dec': () => { setN(keyN() - 1); save(); renderKey(); },
+  'n-inc': () => { setN(keyN() + 1); save(); renderKey(); },
+  'uni-apply': () => { const v = +$('#key-uni').value; if (!(v >= 0)) return toast('أدخل درجة صحيحة'); K().points = K().points.map(() => v); save(); renderKey(); },
+  'key-set': b => { const q = +b.dataset.q, o = +b.dataset.o, k = K(); k.answers[q] = k.answers[q] === o ? null : o; save(); renderKey(); $(`[data-act="key-set"][data-q="${q}"][data-o="${o}"]`)?.focus(); },
+  'v-mic': () => { if (session.on) endSession(); else startSession(); },
+  'print-go': () => doPrint(),
+  'print-dl': () => printDownload(),
+  'print-preview': () => printPreview(),
+  'exam-add': () => addExam(),
+  'exam-pick': b => switchExam(b.dataset.id),
+  'exam-del': () => deleteExam(),
+  'set-choice': b => { S.settings.choice = b.dataset.v; save(); render(); },
+  'v-camsave': b => { S.settings.camSave = b.dataset.v; save(); renderVoice(); updateCamHud(); },
+  'cam-open': () => { CAM.err = null; if (!CAM.on && !CAM.photo) startCamera(); else { showCam(true); camFit(); drawOverlay(); updateCamHud(); } },
+  'cam-save': () => { trySave(); },
+  'cam-redo': () => { camRedo(); },
+  'cam-cancel': () => { camCancel(); },
+  'cam-torch': () => { camTorch(); },
+  'cam-mic': () => { if (session.on) endSession(); else startSession(); setTimeout(updateCamHud, 300); },
+  'cam-retry': () => { CAM.err = null; startCamera(); },
+  'cam-voice': () => { stopCamera(); S.settings.mode = 'answers'; save(); setPhase(nextPhase()); toast('صارت القراءة بالصوت'); },
+  'cam-fix': b => { V.manual[+b.dataset.q] = +b.dataset.o; tick(); updateCamHud(); drawOverlay(); keepFocus(renderVoice); camMaybeAuto(); },
+  'cal-start': () => calStart(),
+  'cal-listen': () => calListen(),
+  'cal-skip': () => { CAL.results[CAL.i] = { lang: CAL.langs[CAL.i][0], err: 'skipped' }; CAL.i++; renderVoice(); },
+  'cal-cancel': () => { try { CAL && CAL.rec && CAL.rec.abort(); } catch (e) {} CAL = null; renderVoice(); },
+  'cal-use': b => { S.settings.nameLang = b.dataset.name; S.settings.ansLang = b.dataset.ans; save(); CAL = null; refreshLocal(); toast('ضُبطت لغة التعرّف'); renderVoice(); },
+  'v-retry': () => { V.err = null; micChecked = false; endSession(); startSession(); },
+  'v-mode': b => { S.settings.mode = b.dataset.mode; save(); setPhase(nextPhase()); },
+  'v-pick': b => { V.search = ''; V.block = null; selectRow(+b.dataset.row, 'pick'); if (V.row != null) { tick(); G().cursor = V.row; } setPhase(nextPhase()); },
+  'v-namemode': b => { S.settings.nameMode = b.dataset.mode; save(); if (V.err === 'offline') V.err = null; if (b.dataset.mode === 'voice' && V.byOrder) V = newV(); setPhase(nextPhase()); },
+  'v-anslang-en': () => { S.settings.ansLang = 'en-US'; save(); if (V.err === 'offline') V.err = null; toast('صارت قراءة الإجابات بالإنجليزية'); setPhase(nextPhase()); },
+  'v-step': b => { const from = V.row, dir = +b.dataset.dir; V = Object.assign(newV(), { noAuto: true }); autoPick(dir, typeof from === 'number' ? from : undefined); if (V.row == null) V.noAuto = false; setPhase(nextPhase()); },
+  'local-install': b => installLocal(b.dataset.lang),
+  'v-regrade': () => { const r = V.block.row; V.block = null; V.regrade = true; V.row = r; V.picked = true; setPhase(nextPhase()); },
+  'v-switch': () => { const o = V.elsewhere, heard = V.heard; S.active = o.gid; save(); V = newV(); V.heard = heard; selectRow(o.row, 'voice'); setPhase(nextPhase()); toast(`انتقلت إلى ${gLabel(G())}`); },
+  'v-extra': () => { V.row = 'extra'; V.heard = V.heard || V.search.trim(); V.search = ''; setPhase(nextPhase()); },
+  'v-change': () => { V.row = null; V.sure = false; V.picked = false; V.regrade = false; V.byOrder = false; V.noAuto = true; if (!V.heard) V.search = ' '; setPhase('name'); },
+  'v-name-go': () => { const v = $('#v-name').value.trim(); if (!v) return; applyHeardName([v]); setPhase(nextPhase()); },
+  'v-set': b => { V.manual[+b.dataset.q] = +b.dataset.o; setPhase(nextPhase()); },
+  'v-undo': () => { V.text = V.text.trim().split(/\s+/).slice(0, -1).join(' '); setPhase(nextPhase()); },
+  'v-clear': () => { V.text = ''; V.manual = {}; setPhase(nextPhase()); },
+  'v-save': () => trySave(),
+  'v-reset': () => { V = newV(); setPhase('name'); },
+  'export-active': () => { const g = G(); if (g) exportGroup(g); },
+  'export-file': b => exportFile(b.dataset.fid),
+  'export-nofile': b => { const g = S.groups.find(x => x.id === b.dataset.id); if (g) exportNoFile(g); },
+  'r-clear': b => { delete RES(G())[+b.dataset.row]; save(); renderResults(); },
+  'x-del': b => { const g = G(), i = +b.dataset.i; modal({ title: 'حذف هذه الدرجة؟', body: `<p>${esc(EXT(g)[i].name)}</p>`, actions: [{ label: 'حذف', kind: 'danger solid', onClick: () => { EXT(g).splice(i, 1); save(); renderResults(); } }, { label: 'إلغاء' }] }); },
+  backup: () => saveFile(`نسخة-احتياطية-المصحح-الصوتي-${today()}.json`, JSON.stringify({ app: 'voice-grader', version: 2, exportedAt: new Date().toISOString(), data: S })),
+  'clear-scores': () => modal({ title: 'مسح كل الدرجات؟', body: '<p>تبقى الصفوف والشعب والمفاتيح، وتُحذف كل الدرجات المحفوظة.</p>', actions: [{ label: 'مسح الدرجات', kind: 'danger solid', onClick: () => { S.groups.forEach(g => { g.byExam = {}; }); save(); render(); toast('مُسحت درجات كل الامتحانات'); } }, { label: 'إلغاء' }] }),
+  wipe: () => modal({ title: 'مسح كل البيانات؟', body: '<p>تُحذف الصفوف والشعب والمفاتيح والدرجات من هذا الجهاز.</p>', actions: [{ label: 'مسح كل شيء', kind: 'danger solid', onClick: () => { S = defaults(); for (const k in WB) delete WB[k]; V = newV(); save(); go('setup'); } }, { label: 'إلغاء' }] })
+};
+document.addEventListener('click', e => { const b = e.target.closest('[data-act]'); if (!b || b.disabled) return; const f = ACT[b.dataset.act]; if (f) { e.preventDefault(); f(b, e); } });
+document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.id === 'v-name') ACT['v-name-go'](); });
+document.addEventListener('input', e => {
+  const t = e.target;
+  if (t.classList.contains('ptsin')) { K().points[+t.dataset.q] = t.value === '' ? 0 : +t.value; save(); $('#key-total').textContent = fmt(maxScore()); }
+  else if (t.id === 'v-text') { V.text = t.value; V.saved = null; clearTimeout(t._tm); t._tm = setTimeout(() => setPhase(nextPhase()), 450); }
+  else if (t.id === 'v-score') { V.scoreText = t.value; clearTimeout(t._tm); t._tm = setTimeout(() => setPhase(nextPhase()), 450); }
+  else if (t.id === 'v-search') { V.search = t.value || ' '; clearTimeout(t._tm); t._tm = setTimeout(() => keepFocus(renderVoice), 300); }
+  else if (t.id === 'r-q') { rQuery = t.value; keepFocus(renderResults); }
+});
+document.addEventListener('change', e => {
+  const t = e.target, g = G();
+  if (t.id === 'key-n') { setN(+t.value); save(); renderKey(); }
+  else if (t.id === 'v-group' || t.id === 'r-group') { endSession(); switchGroup(t.value); }
+  else if (t.id === 'v-exam' || t.id === 'r-exam') switchExam(t.value);
+  else if (t.id === 'pr-cls') { PR.cls = t.value; PR.exams = null; PR.gid = null; renderExport(); }
+  else if (t.id === 'pr-scope') { PR.scope = t.value; renderExport(); }
+  else if (t.id === 'pr-sec') { PR.gid = t.value; renderExport(); }
+  else if (t.id === 'pr-sort') { PR.sort = t.value; renderExport(); }
+  else if (t.classList.contains('pr-exam')) { if (t.checked) PR.exams.add(t.value); else PR.exams.delete(t.value); renderExport(); }
+  else if (t.id === 'exam-name') { const v = t.value.trim(), list = examsOf(g.cls), cur = curExam(g.cls); if (v && !list.some(e => e !== cur && e.name === v)) { cur.name = v; save(); renderExams(); renderKey(); renderBanner(); } else { toast('اسم غير صالح أو مكرر'); t.value = cur.name; } }
+  else if (t.id === 'exam-pass') { const cur = curExam(g.cls); cur.pass = t.value === '' ? null : +t.value; save(); renderExams(); }
+  else if (t.id === 'g-head') { g.headerRow = +t.value; save(); render(); }
+  else if (t.id === 'g-name') { g.nameCol = +t.value; save(); render(); }
+  else if (t.id === 'g-score') { g.scoreCol = +t.value; save(); renderGroup(); }
+  else if (t.id === 's-namelang') { S.settings.nameLang = t.value; save(); refreshLocal(); }
+  else if (t.id === 's-anslang') { S.settings.ansLang = t.value; save(); refreshLocal(); }
+  else if (t.id === 's-choice') { S.settings.choice = t.value; save(); render(); }
+  else if (t.id === 's-speak') { S.settings.speak = t.checked; save(); }
+  else if (t.id === 's-auto') { S.settings.autoSave = t.checked; save(); }
+  else if (t.id === 'r-filter') { rFilter = t.value; renderResults(); }
+  else if (t.classList.contains('r-score')) {
+    const r = +t.dataset.row;
+    if (t.value === '') delete RES(g)[r];
+    else RES(g)[r] = Object.assign(RES(g)[r] || { answers: null, heard: '', time: Date.now(), seq: ++S.seq }, { score: +t.value });
+    save(); keepFocus(renderResults);
+  }
+  else if (t.classList.contains('x-link') && t.value !== '') {
+    const i = +t.dataset.i, r = +t.value, x = EXT(g)[i];
+    RES(g)[r] = { score: x.score, answers: x.answers || null, heard: x.heard || x.name, time: x.time, seq: x.seq };
+    EXT(g).splice(i, 1); save(); renderResults();
+  }
+  else if (t.id === 'in-roster') { if (t.files[0]) onRosterFile(t.files[0]); }
+  else if (t.id === 'in-backup') { if (t.files[0]) restoreBackup(t.files[0]); }
+  else if (t.id === 'in-cam-photo') { if (t.files[0]) camPhoto(t.files[0]); }
+});
+async function restoreBackup(file) {
+  try {
+    const j = JSON.parse(await file.text()), d = j.data || j;
+    if (!(d.groups || d.key)) throw new Error('bad');
+    modal({ title: 'استعادة النسخة الاحتياطية؟', body: '<p>ستحل محل البيانات الحالية على هذا الجهاز.</p>',
+      actions: [{ label: 'استعادة', kind: 'primary', onClick: () => { S = migrate(d); for (const k in WB) delete WB[k]; V = newV(); save(); go('setup'); toast('استُعيدت البيانات'); } }, { label: 'إلغاء' }] });
+  } catch (e) { toast('الملف ليس نسخة احتياطية صالحة من هذا التطبيق'); }
+}
+
+loadState(); save(); checkMicPermission(); refreshLocal();
+addEventListener('online', () => { if (V.err === 'offline') V.err = null; render(); });
+addEventListener('offline', () => render());
+// إغلاق الميكروفون عند مغادرة الصفحة أو إخفائها (قفل الشاشة، تبديل التطبيق)
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    if (session.on) { endSession(); toast('توقف الاستماع؛ اضغط الميكروفون للمتابعة'); }
+    if (CAM.on || CAM.starting) { CAM.err = null; stopTracks(); CAM.on = false; CAM.starting = false; }   // لا تبقى الكاميرا تعمل في الخلفية
+  } else if (step === 'voice') { if (!$('#cam').hidden && !CAM.photo && !CAM.err) { showCam(false); } syncCamera(); }
+});
+addEventListener('pagehide', () => endSession());
+
+/* ---------- تطبيق قابل للتثبيت (PWA) ---------- */
+// يعمل فقط في نسخة الرفع (فيها manifest) عبر https أو localhost؛ الملف المحلي والرابط المنشور لا يتأثران
+const PWA_CTX = !!document.querySelector('link[rel="manifest"]') && 'serviceWorker' in navigator &&
+  (location.protocol === 'https:' || ['localhost', '127.0.0.1'].includes(location.hostname));
+const IS_STANDALONE = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+let installEvt = null, persisted = null, storageUse = 0;
+function storageSize() { try { let n = 0; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); n += k.length + (localStorage.getItem(k) || '').length; } storageUse = Math.round(n * 2 / 1024); } catch (e) {} return storageUse; }
+async function requestPersist(ask = false) {
+  try {
+    if (!navigator.storage || !navigator.storage.persisted) return;
+    persisted = await navigator.storage.persisted();
+    if (!persisted && (ask || IS_STANDALONE)) persisted = await navigator.storage.persist();
+  } catch (e) {}
+  if (step === 'export') renderExport();
+}
+function pwaBanner(html) { const b = $('#pwa-banner'); b.innerHTML = html; b.hidden = !html; }
+function renderInstall() {
+  const btn = $('#install-btn');
+  btn.hidden = !installEvt;
+  if (PWA_CTX && IS_IOS && !IS_STANDALONE && !sessionStorageGet('ios-tip-closed'))
+    pwaBanner(`<div class="notice info"><b>ثبّت التطبيق على الشاشة الرئيسية</b><span>في Safari اضغط زر المشاركة ⬆︎ ثم «إضافة إلى الشاشة الرئيسية». سيفتح كتطبيق ويعمل دون إنترنت.</span><div class="row"><button class="btn sm" data-act="ios-tip-close">حسناً</button></div></div>`);
+}
+function sessionStorageGet(k) { try { return sessionStorage.getItem(k); } catch (e) { return null; } }
+if (PWA_CTX) {
+  let hadController = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (hadController) pwaBanner(`<div class="notice ok"><b>نسخة جديدة من التطبيق جاهزة.</b><div class="row"><button class="btn sm primary" data-act="reload">تحديث الآن</button><span class="small muted">بياناتك محفوظة ولن تتأثر.</span></div></div>`);
+    hadController = true;
+  });
+}
+addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; renderInstall(); });
+addEventListener('appinstalled', () => { installEvt = null; renderInstall(); toast('ثُبّت التطبيق على جهازك'); requestPersist(true); });
+Object.assign(ACT, {
+  install: async () => { if (!installEvt) return; installEvt.prompt(); try { await installEvt.userChoice; } catch (e) {} installEvt = null; renderInstall(); },
+  reload: () => { endSession(); location.reload(); },
+  persist: () => requestPersist(true),
+  'ios-tip-close': () => { try { sessionStorage.setItem('ios-tip-closed', '1'); } catch (e) {} pwaBanner(''); }
+});
+storageSize(); requestPersist(); renderInstall();
+go(['setup', 'voice', 'results', 'export'].includes(location.hash.slice(1)) ? location.hash.slice(1) : (G() ? 'voice' : 'setup'));
+</script>
