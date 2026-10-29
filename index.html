@@ -130,6 +130,8 @@ main section:not([hidden]){animation:rise .28s ease-out}
   #print-root{display:block!important}
 }
 tr.fail td{background:var(--bad-soft)}
+td.cell-fail{background:var(--bad-soft)}
+td .r-score{min-width:64px}
 td.drag{width:40px;padding-inline:4px}
 .handle{display:grid;place-items:center;width:34px;height:38px;border:0;border-radius:10px;background:transparent;color:var(--muted);cursor:grab;touch-action:none}
 .handle:hover,.handle:focus-visible{background:var(--surface-2);color:var(--accent)}
@@ -2759,8 +2761,27 @@ async function scanDelChosen() {
 
 /* ---------- ٣: النتائج ---------- */
 let rQuery = '', rFilter = 'all', rScope = 'sec';   // sec: الشعبة الحالية · split: الصف كاملاً شعبة شعبة · all: الصف كاملاً قائمة واحدة
+let rAllEx = false;   // «كل الامتحانات»: عمود درجة لكل امتحان جنباً إلى جنب (للعرض فقط؛ التصحيح يبقى على الامتحان النشط)
+// خلايا الدرجات لكل امتحانات الصف، مع المجموع
+function allExamCells(g, s) {
+  const list = examsOf(g.cls);
+  let sum = 0, any = false, maxSum = 0;
+  const cells = list.map(e => {
+    const res = RES(g, e.id)[s.row], fail = res && res.score < passMark(e);
+    maxSum += examMax(e); if (res) { sum += res.score; any = true; }
+    return `<td class="${fail ? 'cell-fail' : ''}"><input type="number" class="r-score" id="rs-${g.id}-${s.row}-${e.id}" data-gid="${g.id}" data-row="${s.row}" data-ex="${e.id}" step="0.25" min="0" value="${res ? res.score : ''}" aria-label="درجة ${esc(s.name)} في ${esc(e.name)}"></td>`;
+  }).join('');
+  return cells + (list.length > 1 ? `<td class="num"><b>${any ? fmt(sum) : '–'}</b> <span class="small muted">/ ${fmt(maxSum)}</span></td>` : '');
+}
+const gradedAll = (g, row) => examsOf(g.cls).every(e => RES(g, e.id)[row]);
 // صف طالب في جدول النتائج؛ مقبض السحب يظهر فقط حين يمكن تغيير التسلسل
 function resultRow(g, s, i, o) {
+  if (o.allEx) {
+    const done = gradedAll(g, s.row);
+    return `<tr data-gid="${g.id}" data-row="${s.row}" class="${done ? 'done' : ''}">
+      ${o.drag ? `<td></td>` : ''}<td class="num">${i + 1}</td>${o.sec ? `<td>${esc(g.sec)}</td>` : ''}
+      <td>${esc(s.name)}${s.renamed ? ' <span class="tag info">معدَّل</span>' : ''}${s.virtual ? ' <span class="tag">مضاف</span>' : ''}</td>${allExamCells(g, s)}</tr>`;
+  }
   const res = RES(g)[s.row], fail = res && res.score < passMark(curExam(g.cls));
   return `<tr data-gid="${g.id}" data-row="${s.row}" class="${res ? 'done' : ''}${fail ? ' fail' : ''}">
     ${o.drag ? `<td class="drag"><button class="handle" id="h-${g.id}-${s.row}" data-gid="${g.id}" data-row="${s.row}" aria-label="اسحب لتغيير ترتيب ${esc(s.name)}، أو استخدم السهمين للأعلى والأسفل" title="اسحب لتغيير الترتيب"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M9 5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm9 0a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zM9 12a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm9 0a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zM9 19a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm9 0a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"/></svg></button></td>` : ''}
@@ -2777,11 +2798,16 @@ function resultRow(g, s, i, o) {
 }
 function filterList(g) {
   const q = nameKey(rQuery);
-  return students(g).map((s, i) => ({ s, i })).filter(({ s }) => (!q || nameKey(s.name).includes(q)) && (rFilter === 'all' || (rFilter === 'done') === !!RES(g)[s.row]));
+  const done = s => rAllEx ? gradedAll(g, s.row) : !!RES(g)[s.row];
+  return students(g).map((s, i) => ({ s, i })).filter(({ s }) => (!q || nameKey(s.name).includes(q)) && (rFilter === 'all' || (rFilter === 'done') === done(s)));
 }
 function resultTable(g, items, o) {
-  return `<div class="tablewrap"><table><thead><tr>${o.drag ? '<th aria-label="ترتيب"></th>' : ''}<th>ت</th>${o.sec ? '<th>الشعبة</th>' : ''}<th>اسم الطالب</th><th>الدرجة</th><th>الإجابات</th><th>إجراءات</th></tr></thead>
-    <tbody data-gid="${g ? g.id : ''}">${items.map(it => resultRow(it.g || g, it.s, it.i, o)).join('') || `<tr><td colspan="7" class="muted" style="text-align:center">لا يوجد طلبة مطابقون</td></tr>`}</tbody></table></div>`;
+  if (rAllEx) o = { ...o, allEx: true, drag: false };
+  const cls = (g || items[0]?.g || G()).cls, exs = examsOf(cls);
+  const head = o.allEx ? exs.map(e => `<th>${esc(e.name)} <span class="small muted">/ ${fmt(examMax(e))}</span></th>`).join('') + (exs.length > 1 ? '<th>المجموع</th>' : '')
+    : '<th>الدرجة</th><th>الإجابات</th><th>إجراءات</th>';
+  return `<div class="tablewrap"><table><thead><tr>${o.drag ? '<th aria-label="ترتيب"></th>' : ''}<th>ت</th>${o.sec ? '<th>الشعبة</th>' : ''}<th>اسم الطالب</th>${head}</tr></thead>
+    <tbody data-gid="${g ? g.id : ''}">${items.map(it => resultRow(it.g || g, it.s, it.i, o)).join('') || `<tr><td colspan="${exs.length + 6}" class="muted" style="text-align:center">لا يوجد طلبة مطابقون</td></tr>`}</tbody></table></div>`;
 }
 // تغيير التسلسل: يُحفظ في g.order ويُستخدم في التصحيح «بترتيب القائمة» وفي الطباعة
 function reorder(g, row, toRow, after) {
@@ -2858,13 +2884,14 @@ function renderResults() {
   const gone = g.fid ? Object.entries(g.hidden || {}).map(([r, h]) => ({ key: r, name: h.name || origName(+r, g), why: h.deleted ? 'محذوف' : 'نُقل إلى ' + (S.groups.find(x => x.id === h.moved)?.sec ? 'شعبة ' + S.groups.find(x => x.id === h.moved).sec : 'شعبة أخرى'), canRestore: !!h.deleted }))
     .concat((g.trash || []).map((t, i) => ({ key: 't' + i, name: t.name, why: 'محذوف', canRestore: true }))) : [];
   el.innerHTML = `<div class="card">
-    <div class="active-bar">${groupSelect('r-group')}${examSelect('r-exam')}<button class="btn primary" data-act="go" data-step="voice">${MIC}متابعة التصحيح</button></div>
+    <div class="active-bar">${groupSelect('r-group')}${examSelect('r-exam').replace(/ selected/g, rAllEx ? '' : ' selected').replace('</select>', `<option value="all" ${rAllEx ? 'selected' : ''}>كل الامتحانات</option></select>`)}<button class="btn primary" data-act="go" data-step="voice">${MIC}متابعة التصحيح</button></div>
     <div class="card-head"><p class="muted small">${g.fid ? `صُحّح <span class="num">${doneN}</span> من <span class="num">${sts.length}</span> طالباً` : 'شعبة بدون ملف أسماء'}${EXT(g).length && g.fid ? ` · <span class="num">${EXT(g).length}</span> غير مطابقة` : ''}</p>
       ${g.fid ? `<button class="btn sm" data-act="st-add">+ إضافة طالب</button>` : ''}</div>
     ${g.fid ? `${scopeSeg ? `<div class="seg-row"><span class="small muted">عرض الطلبة</span>${scopeSeg}</div>` : ''}
     <div class="toolbar"><input type="search" id="r-q" placeholder="ابحث بالاسم" value="${esc(rQuery)}">
       <select id="r-filter"><option value="all" ${rFilter === 'all' ? 'selected' : ''}>كل الطلبة</option><option value="done" ${rFilter === 'done' ? 'selected' : ''}>المصحَّحون</option><option value="todo" ${rFilter === 'todo' ? 'selected' : ''}>لم يُصحَّحوا بعد</option></select></div>
-    ${rScope !== 'all' ? `<div class="row small muted"><span>اسحب <b>⋮⋮</b> بجانب الاسم لتغيير التسلسل.</span><button class="btn sm" data-act="ord-abc">ترتيب أبجدي</button><button class="btn sm" data-act="ord-file">كما في ملف Excel</button></div>` : ''}
+    ${rAllEx ? `<p class="small muted">درجات كل امتحانات ${esc(g.cls)} جنباً إلى جنب، مع المجموع. الخانة المظللة: راسب في ذلك الامتحان. يمكنك تعديل أي درجة مباشرة. «المصحَّحون» هنا: من له درجة في كل الامتحانات.</p>` : ''}
+    ${rScope !== 'all' && !rAllEx ? `<div class="row small muted"><span>اسحب <b>⋮⋮</b> بجانب الاسم لتغيير التسلسل.</span><button class="btn sm" data-act="ord-abc">ترتيب أبجدي</button><button class="btn sm" data-act="ord-file">كما في ملف Excel</button></div>` : ''}
     ${tables}` : ''}
     ${gone.length ? `<details class="adv"><summary>المحذوفون والمنقولون من هذه الشعبة (${gone.length})</summary>
       <div class="tablewrap" style="margin-top:8px"><table style="min-width:0"><tbody>${gone.map(x => `<tr><td>${esc(x.name)}</td><td><span class="tag">${esc(x.why)}</span></td><td>${x.canRestore ? `<button class="btn sm" data-act="st-restore" data-key="${x.key}">استعادة</button>` : ''}</td></tr>`).join('')}</tbody></table></div></details>` : ''}
@@ -3187,7 +3214,8 @@ document.addEventListener('change', e => {
   const t = e.target, g = G();
   if (t.id === 'key-n') { setN(+t.value); save(); renderKey(); }
   else if (t.id === 'v-group' || t.id === 'r-group') { endSession(); switchGroup(t.value); }
-  else if (t.id === 'v-exam' || t.id === 'r-exam') switchExam(t.value);
+  else if (t.id === 'r-exam' && t.value === 'all') { rAllEx = true; renderResults(); }
+  else if (t.id === 'v-exam' || t.id === 'r-exam') { rAllEx = false; switchExam(t.value); }
   else if (t.id === 'ab-cls') { AB.cls = t.value; AB.ex = null; AB.sec = 'all'; renderResults(); }
   else if (t.id === 'ab-ex') { AB.ex = t.value; renderResults(); }
   else if (t.id === 'ab-sec') { AB.sec = t.value; renderResults(); }
@@ -3213,9 +3241,9 @@ document.addEventListener('change', e => {
   else if (t.id === 's-auto') { S.settings.autoSave = t.checked; save(); }
   else if (t.id === 'r-filter') { rFilter = t.value; renderResults(); }
   else if (t.classList.contains('r-score')) {
-    const r = +t.dataset.row, g = S.groups.find(x => x.id === t.dataset.gid) || G();
-    if (t.value === '') delete RES(g)[r];
-    else RES(g)[r] = Object.assign(RES(g)[r] || { answers: null, heard: '', time: Date.now(), seq: ++S.seq }, { score: +t.value });
+    const r = +t.dataset.row, g = S.groups.find(x => x.id === t.dataset.gid) || G(), R = RES(g, t.dataset.ex || undefined);
+    if (t.value === '') delete R[r];
+    else R[r] = Object.assign(R[r] || { answers: null, heard: '', time: Date.now(), seq: ++S.seq }, { score: +t.value });
     save(); keepFocus(renderResults);
   }
   else if (t.classList.contains('x-link') && t.value !== '') {
