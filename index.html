@@ -33,6 +33,18 @@
   --shadow:0 1px 2px rgba(0,0,0,.4),0 12px 30px -18px rgba(0,0,0,.7); color-scheme:dark}
 *{box-sizing:border-box}
 [hidden]{display:none!important}
+.banner .pick-seg{background:rgba(0,0,0,.22);align-items:center}
+.banner .pick-seg .pick-lbl{color:rgba(255,255,255,.8);font-size:.82rem;padding-inline:8px 2px}
+.banner .pick-seg button{color:rgba(255,255,255,.85);min-height:34px;padding:5px 12px}
+.banner .pick-seg button[aria-pressed="true"]{background:#fff;color:var(--accent)}
+.vp-wrap{display:flex;gap:6px;align-items:stretch}
+.vp-wrap>select,.vp-wrap>input{flex:1;min-width:0}
+.vp-mic{flex:none;display:none;align-items:center;justify-content:center;width:44px;min-height:40px;border-radius:12px;border:1px solid var(--line,#cfdcdc);background:var(--surface-2,#eef4f4);color:var(--accent,#0B5D66);cursor:pointer;padding:0}
+.vp-mic svg{width:20px;height:20px}
+html.pick-voice .vp-mic{display:inline-flex}
+.vp-mic.listening{background:#d63a2f;border-color:#d63a2f;color:#fff;animation:vpPulse 1s infinite}
+@keyframes vpPulse{50%{box-shadow:0 0 0 6px rgba(214,58,47,.25)}}
+@media (prefers-reduced-motion:reduce){.vp-mic.listening{animation:none}}
 .scan-prev{position:fixed;inset:0;z-index:200;background:rgba(10,30,34,.86);display:flex;flex-direction:column}
 .scan-prev .sp-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;padding:10px 16px;background:#0B5D66;color:#fff}
 .scan-prev .sp-act{display:flex;gap:8px}
@@ -278,6 +290,9 @@ tr.done td:first-child{box-shadow:inset -4px 0 0 var(--ok)}
       <div class="ctx" id="banner-ctx"></div>
       <div class="row">
         <button class="btn sm primary" id="install-btn" data-act="install" hidden>تثبيت التطبيق</button>
+        <span class="seg pick-seg" role="radiogroup" aria-label="طريقة اختيار الخانات والبحث"><span class="pick-lbl">الاختيار</span>
+          <button data-act="pick-mode" data-v="voice" role="radio" aria-checked="true" aria-pressed="true">صوتي</button>
+          <button data-act="pick-mode" data-v="manual" role="radio" aria-checked="false" aria-pressed="false">يدوي</button></span>
         <span class="chip" id="storage-chip">الحفظ: <b>على هذا الجهاز</b></span>
       </div>
     </div>
@@ -1650,6 +1665,10 @@ function trySave(auto = false) {
     const ex = curExam(g.cls);
     saveScan({ gid: g.id, exId: ex.id, row: V.row, name, score, answers: rec.answers, key: ex.key.answers, snap: CAM.snap });
   }
+  else if (mode === 'answers' && V.row !== 'extra' && S.settings.camScans !== false && rec.answers) {
+    const ex = curExam(g.cls);
+    saveAnswerScan({ gid: g.id, exId: ex.id, row: V.row, name, score, answers: rec.answers, key: ex.key.answers, voice: !!V.heard || !!V.voiceAns });
+  }
   CAM.snap = null;
   if (mode === 'camera' && V.cam && V.cam.locked && (CAM.on || CAM.photo)) CAM.await = { sig: V.cam.locked.sig, diff: 0 };
   clearTimeout(CAM.autoT);
@@ -1802,7 +1821,8 @@ function renderVoice() {
           <button data-act="v-camsave" data-v="manual" role="radio" aria-checked="${S.settings.camSave !== 'auto'}" aria-pressed="${S.settings.camSave !== 'auto'}">حفظ يدوي</button>
         </div>
         <span class="small muted">${S.settings.camSave === 'auto' ? 'تُحفظ الدرجة فور تثبيت قراءة كاملة، ثم الطالب التالي.' : 'بعد تثبيت القراءة اضغط «حفظ» أو قل «احفظ»، ثم الطالب التالي.'}</span></div>
-        <label class="small row"><input type="checkbox" id="cam-scans" ${S.settings.camScans !== false ? 'checked' : ''}> حفظ صورة لكل ورقة بعد تسجيل درجتها (تُجمع في PDF من تبويب الطباعة)</label>` : ''}
+` : ''}
+      ${mode !== 'score' ? `<label class="small row"><input type="checkbox" id="cam-scans" ${S.settings.camScans !== false ? 'checked' : ''}> ${mode === 'camera' ? 'حفظ صورة لكل ورقة بعد تسجيل درجتها' : 'حفظ صورة لإجابات كل طالب بعد تسجيل درجته'} (تُجمع في PDF من تبويب الطباعة)</label>` : ''}
       ${g.fid ? `<div class="row" role="radiogroup" aria-label="تحديد الطالب">
         <span class="small muted">تحديد الطالب:</span>
         <button class="btn sm ${!order ? 'primary' : ''}" data-act="v-namemode" data-mode="voice" aria-pressed="${!order}">بقول اسمه</button>
@@ -2499,6 +2519,153 @@ async function buildScanPdf(items, title, sub) {
   return pdfFromJpegs(out);
 }
 
+// صورة لإجابات الطالب حين تُسجَّل بالصوت أو يدوياً (لا توجد صورة ورقة): شبكة فقاعات بإجاباته، تدخل ملف النسخ المصورة نفسه
+function answerSheetCanvas(answers, key) {
+  const W = SCAN_W, H = Math.round(W * 1060 / 850), n = answers.length, labels = optLabels();
+  const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const x = cv.getContext('2d'); x.direction = 'rtl';
+  x.fillStyle = '#fff'; x.fillRect(0, 0, W, H);
+  x.strokeStyle = '#c9d6d6'; x.lineWidth = 2; x.strokeRect(6, 6, W - 12, H - 12);
+  x.fillStyle = '#0B5D66'; x.font = `700 18px ${PDF_FONT}`; x.textAlign = 'center'; x.textBaseline = 'middle';
+  x.fillText('ورقة الإجابة كما سُجّلت', W / 2, 30);
+  x.fillStyle = '#5a6f74'; x.font = `400 12px ${PDF_FONT}`;
+  x.fillText('أُدخلت الإجابات بالصوت أو يدوياً', W / 2, 50);
+  const cols = n <= 10 ? 1 : n <= 20 ? 2 : 3, per = Math.ceil(n / cols), top = 70, cw = (W - 24) / cols;
+  const rh = Math.min(48, (H - top - 30) / per), r = Math.min(13, rh * 0.32, cw / 14);
+  for (let q = 0; q < n; q++) {
+    const c = Math.floor(q / per), i = q % per, cy = top + rh * (i + 0.5);
+    const right = W - 12 - c * cw;   // الأعمدة من اليمين
+    x.fillStyle = '#13262c'; x.font = `600 ${Math.round(r * 1.15)}px ${PDF_FONT}`; x.textAlign = 'right';
+    x.fillText(String(q + 1), right - 4, cy);
+    const a = answers[q], k = key[q];
+    for (let o = 0; o < 4; o++) {
+      const bx = right - r * 4 - o * r * 2.6;
+      x.beginPath(); x.arc(bx, cy, r, 0, 7);
+      if (a === o) { x.fillStyle = '#1b2a2e'; x.fill(); }
+      x.lineWidth = 1.5; x.strokeStyle = '#7b8c90'; x.stroke();
+      x.fillStyle = a === o ? '#fff' : '#7b8c90'; x.font = `600 ${Math.round(r * 0.95)}px ${PDF_FONT}`; x.textAlign = 'center';
+      x.fillText(labels[o], bx, cy + 0.5);
+      // حلقة خضراء للإجابة الصحيحة، وحمراء للإجابة الخاطئة المختارة
+      if (k != null && (o === k || a === o)) { x.beginPath(); x.arc(bx, cy, r + 3.5, 0, 7); x.lineWidth = 2.5; x.strokeStyle = o === k ? '#1f9d55' : '#d63a2f'; x.stroke(); }
+    }
+    if (a == null) { x.fillStyle = '#b06a00'; x.font = `400 ${Math.round(r * 0.9)}px ${PDF_FONT}`; x.textAlign = 'left'; x.fillText('فارغ', right - r * 4 - 3 * r * 2.6 - r * 2 - 30, cy); }
+  }
+  return cv;
+}
+async function saveAnswerScan(info) {
+  try {
+    const cv = answerSheetCanvas(info.answers, info.key);
+    const blob = await new Promise(r => cv.toBlob(r, 'image/jpeg', 0.8));
+    await scanPut({ key: scanKey(info.gid, info.exId, info.row), gid: info.gid, exId: info.exId, row: info.row, name: info.name, score: info.score, time: Date.now(), blob, kind: 'answers' });
+  } catch (e) { console.warn('answer scan', e); }
+}
+
+/* ---------- الاختيار الصوتي: زر ميكروفون بجانب كل قائمة اختيار وكل حقل بحث ----------
+   «صوتي»: تقول الخيار فيُختار (مطابقة صوتية تراعي الحروف الكردية والأرقام المنطوقة وأسماء الحروف).
+   «يدوي»: تُخفى أزرار الميكروفون ويبقى الاختيار باللمس فقط. */
+const MIC_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v4M8 22h8"/></svg>';
+const LETTER_NAMES = (() => {
+  const m = {}, add = (l, ws) => ws.forEach(w => { m[loose(w)] = loose(l); });
+  add('ا', ['الف', 'ألف', 'اليف', 'ئەلف', 'اي', 'a']); add('ب', ['باء', 'با', 'بي', 'بێ', 'b', 'bee']); add('ت', ['تاء', 'تا']); add('ث', ['ثاء', 'ثا']);
+  add('ج', ['جيم', 'جیم', 'جي', 'c', 'see']); add('ح', ['حاء', 'حا']); add('خ', ['خاء', 'خا']); add('د', ['دال', 'دي', 'd', 'dee']); add('ذ', ['ذال']);
+  add('ر', ['راء', 'را']); add('ز', ['زاي', 'زا']); add('س', ['سين']); add('ش', ['شين']); add('ص', ['صاد']); add('ض', ['ضاد']); add('ط', ['طاء', 'طا']);
+  add('ظ', ['ظاء']); add('ع', ['عين']); add('غ', ['غين']); add('ف', ['فاء', 'فا']); add('ق', ['قاف']); add('ك', ['كاف', 'کاف']); add('ل', ['لام']);
+  add('م', ['ميم']); add('ن', ['نون']); add('ه', ['هاء', 'ها', 'هێ']); add('و', ['واو']); add('ي', ['ياء', 'يا']);
+  return m;
+})();
+// يحوّل النص إلى رموز مقارنة: الأرقام المنطوقة إلى أرقام، وأسماء الحروف إلى الحروف
+function pickTokens(s) {
+  // نص لاتيني (اسم سُمع بالإنجليزية) يُحوَّل إلى الحروف العربية، إلا الأرقام والحروف الإنجليزية المنطوقة
+  if (/[a-z]/i.test(s) && !/^(one|two|three|four|five|six|seven|eight|nine|ten|[a-d]|\d+|\s)+$/i.test(String(s).trim())) s = latinToArabic(s);
+  return basic(s).split(' ').filter(Boolean).map(w => {
+    if (WORDS.KN[w] != null) return String(WORDS.KN[w]);
+    const l = loose(w);
+    if (WORDS.N[l] != null) return String(WORDS.N[l]);
+    if (LETTER_NAMES[l]) return LETTER_NAMES[l];
+    return l;
+  });
+}
+// كلمات عامة تتكرر في الخيارات («الصف»، «شعبة»…) لا تميّز بينها؛ تُهمل إن لم يقلها المعلم
+const PICK_STOP = new Set(['الصف', 'صف', 'شعبه', 'الشعبه', 'امتحان', 'الامتحان', 'كل', 'و', 'ال'].map(loose));
+function pickScore(heard, option) {
+  const h = pickTokens(heard), o = pickTokens(option);
+  if (!h.length || !o.length) return 0;
+  const hs = h.join(''), os = o.join('');
+  if (hs === os) return 1;
+  const core = o.filter(t => !PICK_STOP.has(t)), hc = h.filter(t => !PICK_STOP.has(t));
+  const cs = core.join(''), hcs = hc.join('');
+  if (cs && hcs === cs) return 0.98;
+  // كل رمز مسموع موجود في الخيار (مثل «الخامس أ» مقابل «الصف الخامس — شعبة أ»)
+  const hit = hc.filter(t => core.includes(t)).length;
+  let s = !hc.length ? 0 : hit === hc.length ? 0.75 + 0.2 * hit / Math.max(1, core.length) : hit / Math.max(hc.length, core.length) * 0.9;
+  const sim = (a, b) => a && b ? 1 - phonDist(a, b) / Math.max(a.length, b.length) : 0;
+  s = Math.max(s, sim(hs, os) * 0.92, sim(hcs, cs) * 0.94);
+  // الحرف أو الرقم المفرد يجب أن يطابق تماماً (شعبة أ ≠ شعبة ب)
+  const short = core.filter(t => t.length <= 2), hShort = hc.filter(t => t.length <= 2);
+  if (short.length && hShort.length && !hShort.every(t => short.includes(t))) s *= 0.5;
+  return s;
+}
+function vpDecorate(root = document) {
+  root.querySelectorAll('select:not([data-vp]), input[type="search"]:not([data-vp])').forEach(el => {
+    if (el.closest('.scan-prev, #cam')) return;
+    el.dataset.vp = '1';
+    const wrap = document.createElement('span'); wrap.className = 'vp-wrap';
+    const focused = document.activeElement === el, sel = focused && el.tagName === 'INPUT' ? [el.selectionStart, el.selectionEnd] : null;
+    el.parentNode.insertBefore(wrap, el); wrap.appendChild(el);
+    if (focused) { el.focus({ preventScroll: true }); if (sel) try { el.setSelectionRange(...sel); } catch (e) {} }
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'vp-mic'; b.dataset.act = 'vpick';
+    const what = el.tagName === 'SELECT' ? 'اختيار صوتي' : 'بحث صوتي';
+    b.setAttribute('aria-label', what); b.title = what; b.innerHTML = MIC_SVG;
+    wrap.appendChild(b);
+  });
+}
+function applyPickMode() {
+  const v = S.settings.pick !== 'manual';
+  document.documentElement.classList.toggle('pick-voice', v);
+  document.querySelectorAll('[data-act="pick-mode"]').forEach(b => { const on = (b.dataset.v === 'voice') === v; b.setAttribute('aria-pressed', on); b.setAttribute('aria-checked', on); });
+}
+let VP = null;   // جلسة الاختيار الصوتي الحالية
+function vpStop() { if (VP) { try { VP.rec.abort(); } catch (e) {} VP.btn.classList.remove('listening'); VP = null; } }
+function vpick(btn) {
+  const el = btn.parentNode.querySelector('select, input');
+  if (!el) return;
+  if (VP && VP.btn === btn) return vpStop();
+  vpStop();
+  if (!SR) return toast('هذا المتصفح لا يدعم التعرّف على الكلام. استخدم Chrome، أو اختر «يدوي».');
+  const resume = session.on && step === 'voice';
+  if (session.on) endSession();
+  const lang = S.settings.nameLang || 'ar-IQ', isSel = el.tagName === 'SELECT';
+  const opts = isSel ? [...el.options].filter(o => !o.disabled).map(o => ({ v: o.value, t: o.textContent.trim() })) : [];
+  const rec = new SR();
+  rec.lang = lang; rec.interimResults = false; rec.continuous = false; rec.maxAlternatives = 6;
+  if ('processLocally' in rec) rec.processLocally = isLocal(lang);
+  if (isSel && isLocal(lang) && 'phrases' in rec && window.SpeechRecognitionPhrase) { try { rec.phrases = opts.slice(0, 200).map(o => new SpeechRecognitionPhrase(o.t, 6)); } catch (e) {} }
+  VP = { rec, btn }; btn.classList.add('listening');
+  let got = false;
+  rec.onresult = e => {
+    got = true;
+    const alts = [...e.results[0]].map(a => a.transcript.trim()).filter(Boolean);
+    if (!alts.length) return;
+    if (!isSel) {
+      let t = alts[0]; if (/^[a-z\s]+$/i.test(t)) t = latinToArabic(t);
+      el.value = t; el.dispatchEvent(new Event('input', { bubbles: true })); tick(); toast('بحث: ' + t); return;
+    }
+    const ranked = opts.map(o => ({ ...o, s: Math.max(...alts.map(a => pickScore(a, o.t))) })).sort((a, b) => b.s - a.s);
+    const [a, b] = ranked;
+    if (!a || a.s < 0.55) { alarm(); toast(`لم أجد خياراً يطابق «${alts[0]}». أعد المحاولة أو اختر يدوياً.`); return; }
+    if (b && a.s < 0.97 && a.s - b.s < 0.06) { alarm(); toast(`غير واضح: «${a.t}» أم «${b.t}»؟ أعد بوضوح.`); return; }
+    if (el.value !== a.v) { el.value = a.v; el.dispatchEvent(new Event('change', { bubbles: true })); }
+    okTone(); toast('اخترت: ' + a.t);
+  };
+  rec.onerror = e => { if (e.error === 'not-allowed' || e.error === 'service-not-allowed') toast('اسمح باستخدام الميكروفون، أو اختر «يدوي»'); else if (e.error === 'network') toast('التعرّف على الكلام يحتاج إنترنت على هذا الجهاز'); };
+  rec.onend = () => {
+    if (VP && VP.rec === rec) { btn.classList.remove('listening'); VP = null; }
+    if (!got) toast('لم أسمع شيئاً');
+    if (resume) setTimeout(() => { if (step === 'voice' && !session.on) startSession(); }, 300);
+  };
+  setTimeout(() => { try { rec.start(); } catch (e) { btn.classList.remove('listening'); VP = null; toast('تعذّر تشغيل الميكروفون'); } }, resume ? 250 : 0);
+}
+
 /* بطاقة «النسخ المصورة» في تبويب الطباعة */
 const SC = { cls: null, scope: 'section', gid: null, ex: null, count: null };
 function scState() {
@@ -2954,6 +3121,8 @@ const ACT = {
   'print-dl': () => printDownload(),
   'scan-pdf': () => scanPdf(),
   'scan-preview': () => scanPreview(),
+  vpick: b => vpick(b),
+  'pick-mode': b => { S.settings.pick = b.dataset.v; save(); if (b.dataset.v === 'manual') vpStop(); applyPickMode(); toast(b.dataset.v === 'manual' ? 'الاختيار يدوي: باللمس فقط' : 'الاختيار صوتي: اضغط الميكروفون بجانب أي قائمة أو بحث وقل الخيار'); },
   'scan-del': () => scanDelChosen(),
   'print-preview': () => printPreview(),
   'exam-add': () => addExam(),
@@ -3058,6 +3227,9 @@ document.addEventListener('change', e => {
   else if (t.id === 'in-backup') { if (t.files[0]) restoreBackup(t.files[0]); }
   else if (t.id === 'in-cam-photo') { if (t.files[0]) camPhoto(t.files[0]); }
 });
+// أزرار الاختيار الصوتي تُضاف تلقائياً لكل قائمة وحقل بحث يظهر بعد أي عرض
+new MutationObserver(() => { clearTimeout(vpDecorate.t); vpDecorate.t = setTimeout(() => vpDecorate(), 30); }).observe(document.body, { childList: true, subtree: true });
+setTimeout(() => { vpDecorate(); applyPickMode(); }, 0);
 async function restoreBackup(file) {
   try {
     const j = JSON.parse(await file.text()), d = j.data || j;
